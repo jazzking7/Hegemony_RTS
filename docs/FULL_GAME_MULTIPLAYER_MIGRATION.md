@@ -1,51 +1,62 @@
-# Full-game multiplayer migration
+# Full-game multiplayer
 
-The first online battlefield proved the lobby, transport, fixed server tick,
-validation, reconnection, AI, snapshot rendering, and EC2 packaging. It is a
-small vertical slice and is not feature-equivalent to the local skirmish.
+The lobby now starts the existing Command Radius game rather than the reduced
+multiplayer prototype. Every browser receives a normal commander seat and runs
+the same construction, economy, research, production, deployment, aircraft,
+missile, electronic-warfare, directed-energy, automation, AI, combat, and
+victory systems used by local skirmish.
 
-The multiplayer target is now explicit: after Start, every human must enter the
-existing Command Radius battlefield, own one of its normal commanders, and use
-the same construction, production, deployment, research, aircraft, missile,
-electronic-warfare, automation, and victory systems.
+## Match startup
 
-## Completed prerequisite
-
-The classic game previously hardcoded the local player as commander `0` and
-marked every other commander as AI. The runtime now accepts deterministic
-network-session parameters:
+After every human readies and the host presses Start, the lobby assigns each
+browser a seat and opens a deterministic network session:
 
 ```text
-index.html?network=1&player=1&humans=0,1&commanders=3&map=large&seed=77
+index.html?network=1&room=ROOM&player=1&humans=0,1&commanders=3&map=large&seed=77
 ```
 
-- `player` selects the commander controlled by this browser.
-- `humans` prevents those commander seats from running AI logic.
-- `commanders` selects the total number of human plus AI commanders.
-- `map` applies the same Standard/Large world presets as local play.
-- `seed` installs a shared deterministic random stream before game state is
-  created.
+- `player` is the commander controlled by this browser.
+- `humans` prevents human seats from running local AI.
+- `commanders` is the total number of human plus AI commanders.
+- `map` selects the existing Standard or Large world.
+- `seed` initializes the shared deterministic random stream before setup.
 
-Network sessions skip the local setup overlay, create the normal full game,
-and focus the camera on the assigned commander's Capital. Local file play still
-defaults to commander `0` and the existing setup screen.
+The lobby stores the Colyseus reconnection token in session storage. The full
+game page uses it to reclaim the same room and commander seat after navigation.
 
-## Remaining synchronization work
+## Synchronization model
 
-1. Define serializable commands for every human mutation point: construction,
-   building actions, production/configuration, deployment, research, aiming,
-   automation, upgrades, and voluntary removal.
-2. Queue commands in the Colyseus room and release them with an authoritative
-   simulation tick and monotonic sequence number.
-3. Apply the same ordered command batch before the same fixed step in every
-   game runtime; AI and randomness then remain deterministic under the shared
-   seed.
-4. Send periodic canonical hashes and recovery snapshots. Pause and repair a
-   client when its hash differs rather than allowing silent divergence.
-5. Add late join/reload reconnection, command-rate validation, match-end
-   cleanup, and long-running multi-client desync tests.
+The Colyseus room owns the 30 Hz match clock and the canonical command order.
+Human actions are serialized, assigned a monotonic sequence number and a future
+simulation tick, and broadcast to every browser. Each browser applies that
+ordered batch immediately before the same fixed update. AI and random outcomes
+therefore advance from the same initial state and seed.
 
-The reduced multiplayer world remains available while this migration is under
-construction. It should be removed from the player-facing flow only after all
-human actions are represented by the command protocol and the full-engine
-desync tests pass.
+The command bridge covers player-visible simulation mutations, including:
+
+- placement, voluntary demolition, settlement and onsite upgrades;
+- unit, convoy, drone, engineer, and advanced-infantry production;
+- research and vehicle, aircraft, passenger, convoy, and loadout configuration;
+- ground, air, drone, scheduled, and automated deployments;
+- EW headings, missile silos and launches, energy controls and orbital strikes;
+- hive modes, engineering automation, and synchronized pause state.
+
+The room retains the complete command history for the match. A browser that
+finishes loading later requests that history before catching up to the current
+server tick.
+
+## Validation
+
+```powershell
+npm run build
+npm run test:game
+# with npm run dev active in another terminal
+npm run test:lobby-live
+```
+
+`test:lobby-live` creates two clients, starts a full-engine match, and verifies
+that both receive the same descriptor, clock, player seat, sequence, and command.
+
+Periodic state hashes and recovery snapshots are the next hardening step for
+long internet sessions. The current command lead time absorbs ordinary EC2
+latency, while deterministic replay handles normal page-load and reconnect gaps.

@@ -914,7 +914,7 @@
     const onsiteUpgradeButton = els.selectionContent.querySelector('[data-action="onsite-upgrade"]');
     if (onsiteUpgradeButton) onsiteUpgradeButton.addEventListener('click', () => { const result = applyBuildingOnsiteUpgrade(e); if (!result.ok) notify(result.reason || 'OU unavailable.', 'warning'); renderSelectionPanel(); refreshBuildButtons(); });
     const removeStructureButton = els.selectionContent.querySelector('[data-action="remove-structure"]');
-    if (removeStructureButton) removeStructureButton.addEventListener('click', () => removeBuilding(e));
+    if (removeStructureButton) removeStructureButton.addEventListener('click', () => removeOwnedBuilding(e));
     const ewAimButton = els.selectionContent.querySelector('[data-ew-aim]');
     if (ewAimButton) ewAimButton.addEventListener('click', () => beginEWAntennaAim(e));
     els.selectionContent.querySelectorAll('[data-missile-silo-toggle]').forEach(button => button.addEventListener('click', () => { toggleMissileSilo(e, Number(button.dataset.missileSiloToggle)); renderSelectionPanel(); }));
@@ -1073,8 +1073,7 @@
       button.addEventListener('click', () => {
         const turret = button.dataset.ifvTurret;
         if (turret === 'grenade' && !isResearchComplete(PLAYER_ID, 'mwIFVGrenade')) return;
-        player.vehicleConfig ||= { ifvTurret: 'machineGun' };
-        player.vehicleConfig.ifvTurret = turret === 'grenade' ? 'grenade' : 'machineGun';
+        setIFVTurretConfiguration(PLAYER_ID, turret);
         notify(`IFV default turret set to ${player.vehicleConfig.ifvTurret === 'grenade' ? 'Grenade Launcher' : 'Machine Gun'}.`, 'good', 2.3);
         renderSelectionPanel();
       });
@@ -1098,14 +1097,46 @@
     const saveEngineerDesired = els.selectionContent.querySelector('[data-save-engineer-desired]');
     if (saveEngineerDesired) saveEngineerDesired.addEventListener('click', () => {
       const input = els.selectionContent.querySelector('[data-engineer-desired]');
-      e.engineerDesiredCount = clamp(Math.floor(Number(input?.value) || 0), 0, getEngineeringComplexCapacity(e));
+      setEngineerDesiredCount(e, Number(input?.value));
       notify(`Engineer desired count set to ${e.engineerDesiredCount}.`, 'good', 2);
       renderSelectionPanel();
     });
     const toggleAutoOU = els.selectionContent.querySelector('[data-toggle-engineer-auto-ou]');
-    if (toggleAutoOU) toggleAutoOU.addEventListener('click', () => { e.engineerAutoOUEnabled = !e.engineerAutoOUEnabled; renderSelectionPanel(); });
+    if (toggleAutoOU) toggleAutoOU.addEventListener('click', () => { setEngineerAutoOUEnabled(e, !e.engineerAutoOUEnabled); renderSelectionPanel(); });
     const ouPriority = els.selectionContent.querySelector('[data-engineer-ou-priority]');
-    if (ouPriority) ouPriority.addEventListener('change', () => { e.engineerOUPriority = ouPriority.value === 'functional' ? 'functional' : 'defense'; renderSelectionPanel(); });
+    if (ouPriority) ouPriority.addEventListener('change', () => { setEngineerOUPriority(e, ouPriority.value); renderSelectionPanel(); });
+  }
+
+  function setIFVTurretConfiguration(playerId, turret) {
+    const player = game.players[playerId];
+    if (!player) return false;
+    player.vehicleConfig ||= { ifvTurret: 'machineGun' };
+    player.vehicleConfig.ifvTurret = turret === 'grenade' && isResearchComplete(playerId, 'mwIFVGrenade') ? 'grenade' : 'machineGun';
+    return true;
+  }
+
+  function removeOwnedBuilding(building) {
+    if (!building?.alive || building.playerId !== PLAYER_ID) return false;
+    removeBuilding(building);
+    return true;
+  }
+
+  function setEngineerDesiredCount(complex, value) {
+    if (!complex?.alive) return false;
+    complex.engineerDesiredCount = clamp(Math.floor(Number(value) || 0), 0, getEngineeringComplexCapacity(complex));
+    return true;
+  }
+
+  function setEngineerAutoOUEnabled(complex, enabled) {
+    if (!complex?.alive) return false;
+    complex.engineerAutoOUEnabled = !!enabled;
+    return true;
+  }
+
+  function setEngineerOUPriority(complex, priority) {
+    if (!complex?.alive) return false;
+    complex.engineerOUPriority = priority === 'functional' ? 'functional' : 'defense';
+    return true;
   }
 
   function escapeHtml(value) {
@@ -1500,13 +1531,25 @@
     if (!hasCommandCenter(PLAYER_ID) || !player.convoys[index]) return;
     const nameInput = els.selectionContent.querySelector(`[data-convoy-name="${index}"]`);
     const convoy = player.convoys[index];
-    convoy.name = (nameInput?.value || `Convoy ${index + 1}`).trim().slice(0, 22) || `Convoy ${index + 1}`;
+    const definition = { name: (nameInput?.value || `Convoy ${index + 1}`).trim().slice(0, 22) || `Convoy ${index + 1}` };
     for (const type of getConvoyGroundTypes(PLAYER_ID, convoy)) {
       const input = els.selectionContent.querySelector(`[data-convoy-unit="${index}:${type}"]`);
-      convoy[type] = clamp(Math.floor(Number(input?.value) || 0), 0, 99);
+      definition[type] = clamp(Math.floor(Number(input?.value) || 0), 0, 99);
     }
+    setConvoyDefinition(PLAYER_ID, index, definition);
     notify(`${convoy.name} saved.`, 'good', 2);
     renderSelectionPanel();
+  }
+
+  function setConvoyDefinition(playerId, index, definition) {
+    const player = game.players[playerId];
+    const convoy = player?.convoys?.[index];
+    if (!convoy || !hasCommandCenter(playerId)) return false;
+    convoy.name = String(definition?.name || `Convoy ${index + 1}`).trim().slice(0, 22) || `Convoy ${index + 1}`;
+    for (const type of getConvoyGroundTypes(playerId, convoy)) {
+      convoy[type] = clamp(Math.floor(Number(definition?.[type]) || 0), 0, 99);
+    }
+    return true;
   }
 
   function getBuildingIncome(building) {
@@ -1535,4 +1578,3 @@
     renderSelectionPanel();
     refreshBuildButtons();
   }
-

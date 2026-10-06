@@ -86,12 +86,14 @@ function bindRoom(activeRoom) {
     snapshot = state;
     renderLobby();
   });
-  activeRoom.onMessage(SERVER_MESSAGES.MATCH_STARTED, match => showMatch(match));
+  activeRoom.onMessage(SERVER_MESSAGES.MATCH_STARTED, match => launchFullGame(activeRoom, match));
   activeRoom.onMessage(SERVER_MESSAGES.MATCH_SNAPSHOT, state => matchController.update(state));
   activeRoom.onMessage(SERVER_MESSAGES.MATCH_ENDED, result => matchController.end(result));
   activeRoom.onMessage(SERVER_MESSAGES.MATCH_TICK, payload => {
     elements.serverTick.textContent = String(payload.tick || 0);
   });
+  activeRoom.onMessage(SERVER_MESSAGES.FULL_TICK, () => {});
+  activeRoom.onMessage(SERVER_MESSAGES.FULL_COMMAND, () => {});
   activeRoom.onMessage(SERVER_MESSAGES.ERROR, payload => {
     const message = payload?.message || 'The server rejected that command.';
     if (!elements.matchView.classList.contains('hidden')) matchController.showNotice(message);
@@ -124,7 +126,7 @@ function renderLobby() {
     </div>`).join('') + Array.from({ length: snapshot.aiCount }, (_, index) => `
     <div class="player-row">
       <span class="player-seat">${activePlayers + index + 1}</span>
-      <span class="player-copy"><strong>AI COMMANDER ${index + 1}</strong><small>SERVER CONTROLLED</small></span>
+      <span class="player-copy"><strong>AI COMMANDER ${index + 1}</strong><small>DETERMINISTIC CONTROL</small></span>
       <span class="player-state ready">READY</span>
     </div>`).join('');
 
@@ -174,6 +176,28 @@ function showMatch(match) {
   elements.matchHeading.textContent = `MATCH ${match.roomCode} STARTED`;
   elements.matchSummary.textContent = `${match.mapSize.toUpperCase()} MAP · ${match.players.length} HUMAN${match.players.length === 1 ? '' : 'S'} · ${match.aiCount} AI · ${total} COMMANDERS`;
   matchController.start();
+}
+
+function launchFullGame(activeRoom, match) {
+  clearInterval(countdownTimer);
+  const me = match.players.find(player => player.sessionId === activeRoom.sessionId);
+  if (!me) {
+    elements.lobbyNotice.textContent = 'Your commander seat could not be assigned.';
+    return;
+  }
+  sessionStorage.setItem('commandRadius.roomId', activeRoom.roomId);
+  sessionStorage.setItem('commandRadius.reconnectionToken', activeRoom.reconnectionToken);
+  const params = new URLSearchParams({
+    network: '1',
+    room: activeRoom.roomId,
+    player: String(me.seat),
+    humans: match.humanSeats.join(','),
+    commanders: String(match.commanderCount),
+    map: match.mapSize,
+    seed: String(match.seed)
+  });
+  elements.lobbyNotice.textContent = 'LOADING FULL BATTLEFIELD';
+  location.assign(`index.html?${params}`);
 }
 
 function escapeHtml(value) {

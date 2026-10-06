@@ -57,36 +57,28 @@ for (let attempts = 0; attempts < 6; attempts++) {
 assert(readyState.players.every((player: { ready: boolean }) => player.ready));
 
 const startedPromise = guestMessages.next<any>(SERVER_MESSAGES.MATCH_STARTED);
-const hostWorldPromise = hostMessages.next<any>(SERVER_MESSAGES.MATCH_SNAPSHOT);
-const guestWorldPromise = guestMessages.next<any>(SERVER_MESSAGES.MATCH_SNAPSHOT);
+const hostTickPromise = hostMessages.next<any>(SERVER_MESSAGES.FULL_TICK);
+const guestTickPromise = guestMessages.next<any>(SERVER_MESSAGES.FULL_TICK);
 host.send(CLIENT_MESSAGES.START_MATCH);
 const match = await startedPromise;
-const [hostWorld, guestWorld] = await Promise.all([hostWorldPromise, guestWorldPromise]);
+const [hostTick, guestTick] = await Promise.all([hostTickPromise, guestTickPromise]);
 assert.equal(match.players.length, 2);
 assert.equal(match.tickRate, 30);
 assert.equal(match.mapSize, 'standard');
-assert.equal(hostWorld.entities.length, 14);
-assert.deepEqual(hostWorld, guestWorld);
+assert.equal(match.commanderCount, 2);
+assert.deepEqual(match.humanSeats, [0, 1]);
+assert.equal(hostTick.tick, 0);
+assert.deepEqual(hostTick, guestTick);
 
-host.send(CLIENT_MESSAGES.MATCH_COMMAND, { kind: 'train', unitType: 'infantry' });
-let trainedWorld = hostWorld;
-for (let attempts = 0; attempts < 10; attempts++) {
-  trainedWorld = await hostMessages.next<any>(SERVER_MESSAGES.MATCH_SNAPSHOT);
-  const commander = trainedWorld.players.find((player: { id: string }) => player.id === host.sessionId);
-  if (commander?.unitCount === 7) break;
-}
-assert.equal(trainedWorld.players.find((player: { id: string }) => player.id === host.sessionId)?.unitCount, 7);
-
-const ownedUnit = trainedWorld.entities.find((entity: { playerId: string; type: string }) => entity.playerId === host.sessionId && entity.type !== 'capital');
-assert(ownedUnit);
-host.send(CLIENT_MESSAGES.MATCH_COMMAND, { kind: 'move', entityIds: [ownedUnit.id], x: 1800, y: 1100 });
-let orderedUnit = ownedUnit;
-for (let attempts = 0; attempts < 10; attempts++) {
-  const world = await hostMessages.next<any>(SERVER_MESSAGES.MATCH_SNAPSHOT);
-  orderedUnit = world.entities.find((entity: { id: number }) => entity.id === ownedUnit.id);
-  if (orderedUnit?.orderX > 1700) break;
-}
-assert(orderedUnit.orderX > 1700 && orderedUnit.orderX < 1900);
+const hostCommandPromise = hostMessages.next<any>(SERVER_MESSAGES.FULL_COMMAND);
+const guestCommandPromise = guestMessages.next<any>(SERVER_MESSAGES.FULL_COMMAND);
+host.send(CLIENT_MESSAGES.FULL_COMMAND, { name: 'placeBuilding', args: ['city', 1000, 800, 0] });
+const [hostCommand, guestCommand] = await Promise.all([hostCommandPromise, guestCommandPromise]);
+assert.deepEqual(hostCommand, guestCommand);
+assert.equal(hostCommand.sequence, 1);
+assert.equal(hostCommand.playerId, 0);
+assert.equal(hostCommand.command.name, 'placeBuilding');
+assert(hostCommand.tick >= 12);
 
 await Promise.all([host.leave(true), guest.leave(true)]);
-console.log(`PASS live two-client lobby ${match.roomCode} synchronized start, production, and movement`);
+console.log(`PASS live two-client lobby ${match.roomCode} synchronized full-game start and command sequencing`);

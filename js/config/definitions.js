@@ -19,14 +19,15 @@
 
   const NETWORK_MATCH = getRuntimeParameter('network') === '1';
   const configuredPlayerId = Math.floor(Number(getRuntimeParameter('player')));
-  const PLAYER_ID = NETWORK_MATCH && Number.isInteger(configuredPlayerId)
+  const LOCAL_PLAYER_ID = NETWORK_MATCH && Number.isInteger(configuredPlayerId)
     ? Math.max(0, Math.min(4, configuredPlayerId))
     : 0;
+  let PLAYER_ID = LOCAL_PLAYER_ID;
   const configuredHumanIds = getRuntimeParameter('humans')
     .split(',')
     .map(value => Math.floor(Number(value)))
     .filter(value => Number.isInteger(value) && value >= 0 && value <= 4);
-  const HUMAN_PLAYER_IDS = new Set(NETWORK_MATCH && configuredHumanIds.length ? configuredHumanIds : [PLAYER_ID]);
+  const HUMAN_PLAYER_IDS = new Set(NETWORK_MATCH && configuredHumanIds.length ? configuredHumanIds : [LOCAL_PLAYER_ID]);
   const configuredCommanderCount = Math.floor(Number(getRuntimeParameter('commanders')));
   const NETWORK_COMMANDER_COUNT = NETWORK_MATCH && Number.isInteger(configuredCommanderCount)
     ? Math.max(2, Math.min(5, configuredCommanderCount))

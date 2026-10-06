@@ -8,7 +8,7 @@ import {
   SERVER_MESSAGES
 } from '../../shared/multiplayer-protocol.js';
 import { canStartLobby, clampAiCount, normalizePlayerName } from '../domain/lobby-policy.js';
-import { MultiplayerWorld, seedFromRoomCode } from '../game/MultiplayerWorld.js';
+import { seedFromRoomCode } from '../game/MultiplayerWorld.js';
 import { LobbyPlayer, LobbyState } from '../state/LobbyState.js';
 
 interface JoinOptions {
@@ -21,10 +21,18 @@ export class LobbyRoom extends Room {
   patchRate = 100;
   maxMessagesPerSecond = 30;
   private hostSessionId = '';
-  private world?: MultiplayerWorld;
+  private matchSeed = 1;
+  private commandSequence = 0;
+  private commandHistory: Array<{
+    sequence: number;
+    tick: number;
+    playerId: number;
+    command: { name: string; args: unknown[] };
+  }> = [];
 
   onCreate(): void {
     this.state.roomCode = this.roomId;
+    this.matchSeed = seedFromRoomCode(this.roomId);
     this.setPrivate();
     this.setMetadata({ phase: LOBBY_PHASES.LOBBY, mapSize: 'standard' });
 
@@ -34,6 +42,7 @@ export class LobbyRoom extends Room {
     this.onMessage(CLIENT_MESSAGES.SET_AI_COUNT, (client, payload) => this.setAiCount(client, payload));
     this.onMessage(CLIENT_MESSAGES.START_MATCH, client => this.startMatch(client));
     this.onMessage(CLIENT_MESSAGES.MATCH_COMMAND, (client, payload) => this.handleMatchCommand(client, payload));
+    this.onMessage(CLIENT_MESSAGES.FULL_COMMAND, (client, payload) => this.handleFullCommand(client, payload));
     this.setFixedTimestep(context => this.runMatchTick(context.dt), 30);
   }
 
@@ -71,7 +80,6 @@ export class LobbyRoom extends Room {
   }
 
   onLeave(client: Client): void {
-    this.world?.setAiControlled(client.sessionId);
     this.state.players.delete(client.sessionId);
     if (client.sessionId === this.hostSessionId) this.transferHost();
     this.fitAiCount();
@@ -122,58 +130,56 @@ export class LobbyRoom extends Room {
     this.clock.setTimeout(() => {
       this.state.phase = LOBBY_PHASES.PLAYING;
       this.state.serverTick = 0;
-      this.world = new MultiplayerWorld({
-        mapSize: this.state.mapSize,
-        seed: seedFromRoomCode(this.roomId),
-        commanders: [
-          ...[...this.state.players.values()].map(player => ({
-            id: player.sessionId,
-            name: player.name,
-            seat: player.seat,
-            isAi: false
-          })),
-          ...Array.from({ length: this.state.aiCount }, (_, index) => ({
-            id: `ai:${index}`,
-            name: `AI Commander ${index + 1}`,
-            seat: this.state.players.size + index,
-            isAi: true
-          }))
-        ]
-      });
+      this.commandSequence = 0;
+      this.commandHistory = [];
       this.setMetadata({ phase: this.state.phase, mapSize: this.state.mapSize });
       const match = this.matchDescriptor();
       this.broadcast(SERVER_MESSAGES.MATCH_STARTED, match);
-      this.broadcast(SERVER_MESSAGES.MATCH_SNAPSHOT, this.world.snapshot(0));
+      this.broadcast(SERVER_MESSAGES.FULL_TICK, { tick: 0, sequence: 0 });
       this.broadcastSnapshot();
     }, 3000);
   }
 
-  private runMatchTick(dt: number): void {
+  private runMatchTick(_dt: number): void {
     if (this.state.phase !== LOBBY_PHASES.PLAYING) return;
     this.state.serverTick++;
-    const winnerId = this.world?.step(dt) ?? null;
-    if (this.world && this.state.serverTick % 3 === 0) {
-      this.broadcast(SERVER_MESSAGES.MATCH_SNAPSHOT, this.world.snapshot(this.state.serverTick));
+    if (this.state.serverTick % 3 === 0) {
+      this.broadcast(SERVER_MESSAGES.FULL_TICK, {
+        tick: this.state.serverTick,
+        sequence: this.commandSequence
+      });
     }
     if (this.state.serverTick % 30 === 0) {
       this.broadcast(SERVER_MESSAGES.MATCH_TICK, { tick: this.state.serverTick });
     }
-    if (winnerId && this.world) {
-      this.state.phase = LOBBY_PHASES.ENDED;
-      const finalSnapshot = this.world.snapshot(this.state.serverTick);
-      const winner = finalSnapshot.players.find(player => player.id === winnerId);
-      this.broadcast(SERVER_MESSAGES.MATCH_SNAPSHOT, finalSnapshot);
-      this.broadcast(SERVER_MESSAGES.MATCH_ENDED, { winnerId, winnerName: winner?.name ?? 'Unknown Commander' });
-      this.setMetadata({ phase: this.state.phase, mapSize: this.state.mapSize });
-    }
   }
 
   private handleMatchCommand(client: Client, payload: unknown): void {
-    if (this.state.phase !== LOBBY_PHASES.PLAYING || !this.world) {
+    this.handleFullCommand(client, payload);
+  }
+
+  private handleFullCommand(client: Client, payload: unknown): void {
+    if (this.state.phase !== LOBBY_PHASES.PLAYING) {
       return this.sendError(client, 'The battlefield is not accepting orders.');
     }
-    const result = this.world.applyCommand(client.sessionId, payload);
-    if (!result.ok) this.sendError(client, result.reason ?? 'The server rejected that order.');
+    const player = this.state.players.get(client.sessionId);
+    const command = payload as { name?: unknown; args?: unknown };
+    const name = String(command?.name ?? '');
+    if (!player || !player.connected) return this.sendError(client, 'Your commander is not connected.');
+    if (!/^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/.test(name) || !Array.isArray(command?.args)) {
+      return this.sendError(client, 'Malformed battlefield order.');
+    }
+    if (command.args.length > 24 || JSON.stringify(command).length > 16384) {
+      return this.sendError(client, 'Battlefield order is too large.');
+    }
+    const envelope = {
+      sequence: ++this.commandSequence,
+      tick: this.state.serverTick + 12,
+      playerId: player.seat,
+      command: { name, args: command.args }
+    };
+    this.commandHistory.push(envelope);
+    this.broadcast(SERVER_MESSAGES.FULL_COMMAND, envelope);
   }
 
   private requireLobby(client: Client): boolean {
@@ -215,6 +221,9 @@ export class LobbyRoom extends Room {
       mapSize: this.state.mapSize,
       aiCount: this.state.aiCount,
       tickRate: 30,
+      seed: this.matchSeed,
+      commanderCount: this.state.players.size + this.state.aiCount,
+      humanSeats: [...this.state.players.values()].map(player => player.seat).sort((a, b) => a - b),
       players: [...this.state.players.values()]
         .sort((a, b) => a.seat - b.seat)
         .map(player => ({ sessionId: player.sessionId, name: player.name, seat: player.seat }))
@@ -243,7 +252,13 @@ export class LobbyRoom extends Room {
 
   private sendCurrentState(client: Client): void {
     client.send(SERVER_MESSAGES.LOBBY_STATE, this.snapshot());
-    if (this.world) client.send(SERVER_MESSAGES.MATCH_SNAPSHOT, this.world.snapshot(this.state.serverTick));
+    if (this.state.phase === LOBBY_PHASES.PLAYING) {
+      for (const envelope of this.commandHistory) client.send(SERVER_MESSAGES.FULL_COMMAND, envelope);
+      client.send(SERVER_MESSAGES.FULL_TICK, {
+        tick: this.state.serverTick,
+        sequence: this.commandSequence
+      });
+    }
   }
 
   private broadcastSnapshot(): void {

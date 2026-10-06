@@ -309,7 +309,16 @@
   <script src="js/runtime/update.js"></script>
   <script src="js/render/rendering.js"></script>
   <script src="js/ui/input-hud.js"></script>
+  <script src="js/multiplayer/full-game-bridge.js"></script>
   <script src="js/runtime/events.js"></script>
   <script src="js/runtime/loop.js"></script>
+  <script>
+    if (new URLSearchParams(location.search).get('network') === '1') {
+      const sdk = document.createElement('script');
+      sdk.src = '/vendor/colyseus.js';
+      sdk.onload = () => import('./js/multiplayer/full-game-client.js');
+      document.body.appendChild(sdk);
+    }
+  </script>
 </body>
 </html>
