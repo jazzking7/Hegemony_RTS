@@ -10,7 +10,7 @@
 <body>
   <main class="online-shell">
     <header class="online-brand">
-      <a class="brand-mark" href="/">CR</a>
+      <a class="brand-mark" href="index.html">CR</a>
       <div>
         <strong>COMMAND RADIUS</strong>
         <span>EARLY MULTIPLAYER DEVELOPMENT</span>
@@ -34,7 +34,13 @@
         </div>
       </div>
       <p id="entryError" class="form-error" role="alert"></p>
-      <a class="back-link" href="/">← Back to local skirmish</a>
+      <div id="serverHelp" class="server-help hidden">
+        <strong>MULTIPLAYER NEEDS THE LOCAL SERVER</strong>
+        <span>Open PowerShell in the RTS folder and run:</span>
+        <code>npm run dev</code>
+        <a href="http://localhost:2567/online.html">OPEN http://localhost:2567/online.html</a>
+      </div>
+      <a class="back-link" href="index.html">← Back to local skirmish</a>
     </section>
 
     <section id="lobbyView" class="online-card lobby-card hidden">
@@ -87,7 +93,7 @@
           <h1 id="matchHeading">MATCH STARTED</h1>
           <p id="matchSummary"></p>
         </div>
-        <a class="quiet-button match-exit" href="/online.html">LEAVE MATCH</a>
+        <a class="quiet-button match-exit" href="online.html">LEAVE MATCH</a>
       </div>
 
       <div class="match-command-bar">
@@ -117,7 +123,36 @@
     </section>
   </main>
 
-  <script src="/vendor/colyseus.js"></script>
-  <script type="module" src="js/multiplayer/lobby-client.js"></script>
+  <script>
+    (() => {
+      const status = document.getElementById('connectionStatus');
+      const error = document.getElementById('entryError');
+      const help = document.getElementById('serverHelp');
+      const createButton = document.getElementById('createLobby');
+      const joinButton = document.getElementById('joinLobby');
+
+      function showLoadFailure(message) {
+        status.textContent = location.protocol === 'file:' ? 'SERVER REQUIRED' : 'CLIENT LOAD FAILED';
+        status.className = 'connection-status error';
+        error.textContent = message;
+        createButton.disabled = true;
+        joinButton.disabled = true;
+        help.classList.remove('hidden');
+      }
+
+      if (location.protocol === 'file:') {
+        showLoadFailure('This page was opened as a file. Start the multiplayer server and use the localhost link below.');
+        return;
+      }
+
+      const sdk = document.createElement('script');
+      sdk.src = 'vendor/colyseus.js';
+      sdk.onload = () => import('./js/multiplayer/lobby-client.js').catch(() => {
+        showLoadFailure('The multiplayer client could not start. Reload the page or restart npm run dev.');
+      });
+      sdk.onerror = () => showLoadFailure('The Colyseus client could not be loaded from the local server.');
+      document.body.appendChild(sdk);
+    })();
+  </script>
 </body>
 </html>

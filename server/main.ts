@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -5,7 +6,12 @@ import { defineRoom, defineServer } from 'colyseus';
 import { ROOM_NAME } from '../shared/multiplayer-protocol.js';
 import { LobbyRoom } from './rooms/LobbyRoom.js';
 
-const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
+const sourceWorkspaceRoot = path.resolve(moduleDirectory, '..');
+const builtWorkspaceRoot = path.resolve(moduleDirectory, '..', '..');
+const workspaceRoot = fs.existsSync(path.join(sourceWorkspaceRoot, 'online.html'))
+  ? sourceWorkspaceRoot
+  : builtWorkspaceRoot;
 const port = Number.parseInt(process.env.PORT ?? '', 10) || 2567;
 
 const server = defineServer({

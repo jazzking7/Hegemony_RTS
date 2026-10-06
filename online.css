@@ -71,6 +71,11 @@ p { color: var(--muted); }
 .join-row button, .invite-row button { min-width: 122px; }
 .code-input { text-transform: uppercase; letter-spacing: 2px; }
 .form-error { min-height: 21px; margin: 12px 0 0; color: var(--danger); }
+.server-help { display: grid; gap: 7px; margin: 10px 0 4px; padding: 13px; border: 1px solid rgba(255,189,90,.3); background: rgba(255,189,90,.045); }
+.server-help strong { color: var(--warning); font-size: 10px; letter-spacing: 1px; }
+.server-help span { color: var(--muted); }
+.server-help code { padding: 8px 10px; color: var(--text); background: rgba(0,0,0,.28); user-select: all; }
+.server-help a { color: var(--accent); overflow-wrap: anywhere; }
 .back-link { display: inline-block; margin-top: 8px; color: var(--muted); text-decoration: none; }
 .back-link:hover { color: var(--accent); }
 .lobby-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }

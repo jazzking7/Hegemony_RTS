@@ -31,6 +31,11 @@ its room code or invite URL in another. The original local game remains
 available at `http://localhost:2567/` and can still be opened directly from
 `index.html` without Node.js.
 
+Do not open `online.html` directly as a `file:///` URL. Browsers block its ES
+module and networking client in that mode. If it is opened directly, the page
+now disables lobby actions, explains how to start the server, and keeps the
+Back link pointed at the local `index.html` instead of the drive root.
+
 Battlefield controls:
 
 - Left click or drag selects owned units.
