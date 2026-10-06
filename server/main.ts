@@ -15,7 +15,7 @@ const server = defineServer({
   express: app => {
     app.disable('x-powered-by');
     app.get('/health', (_request, response) => {
-      response.json({ ok: true, service: 'command-radius', multiplayer: 'lobby-bootstrap' });
+      response.json({ ok: true, service: 'command-radius', multiplayer: 'authoritative-alpha' });
     });
     app.use('/vendor', express.static(path.join(workspaceRoot, 'node_modules', '@colyseus', 'sdk', 'dist')));
     app.use(express.static(workspaceRoot, { extensions: ['html'] }));

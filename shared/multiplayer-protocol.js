@@ -5,20 +5,24 @@ export const CLIENT_MESSAGES = Object.freeze({
   SET_READY: 'set_ready',
   SET_MAP: 'set_map',
   SET_AI_COUNT: 'set_ai_count',
-  START_MATCH: 'start_match'
+  START_MATCH: 'start_match',
+  MATCH_COMMAND: 'match_command'
 });
 
 export const SERVER_MESSAGES = Object.freeze({
   LOBBY_STATE: 'lobby_state',
   MATCH_STARTED: 'match_started',
   MATCH_TICK: 'match_tick',
+  MATCH_SNAPSHOT: 'match_snapshot',
+  MATCH_ENDED: 'match_ended',
   ERROR: 'command_error'
 });
 
 export const LOBBY_PHASES = Object.freeze({
   LOBBY: 'lobby',
   COUNTDOWN: 'countdown',
-  PLAYING: 'playing'
+  PLAYING: 'playing',
+  ENDED: 'ended'
 });
 
 export const MAP_SIZES = Object.freeze(['standard', 'large']);

@@ -14,8 +14,8 @@ EARLY MULTIPLAYER DEVELOPMENT
 - The original local skirmish above still works without installation.
 - The early_local_dev branch also includes a Node.js 22+ / Colyseus multiplayer server.
 - Run `npm install` and `npm run dev`, then open http://localhost:2567/online.html.
-- The current milestone supports private create/join lobbies, invite links, ready state, host match settings, synchronized Start, reconnection, and an authoritative 30 Hz match session.
-- Battlefield simulation remains local for now; the next phase moves game state and commands into the server-owned session.
+- The current milestone supports private create/join lobbies, invite links, ready state, host match settings, synchronized Start, reconnection, and a playable server-authoritative battlefield.
+- Multiplayer commanders can train Infantry/Tanks, select formations, issue attack-move orders, fight human or AI commanders, destroy Capitals, and win a synchronized match. The multiplayer rules are an intentionally focused vertical slice; the larger local game's research, construction, aircraft, and specialist systems still need staged server migration.
 - See docs/MULTIPLAYER.md for local testing, Docker/EC2 deployment, architecture, and the migration plan.
 
 CONTROLS

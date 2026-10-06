@@ -1,15 +1,21 @@
 # Multiplayer development
 
-The `early_local_dev` branch contains the first multiplayer slice. It adds a
-Colyseus server, private room codes, invite links, ready state, host-owned match
-settings, a guarded Start button, a shared countdown, reconnect handling, and a
-server-owned 30 Hz match clock.
+The `early_local_dev` branch contains a playable multiplayer vertical slice. It
+adds a Colyseus server, private room codes, invite links, ready state,
+host-owned match settings, a guarded Start button, a shared countdown,
+automatic reconnect handling, and a server-owned 30 Hz battlefield.
 
-The existing RTS simulation is still local. Starting an online match currently
-proves the full lobby-to-match handoff and opens the authoritative session; it
-does not yet synchronize battlefield units or combat. This boundary is
-intentional so gameplay can move to the server without rewriting the working
-single-player mode all at once.
+Online commanders begin with a Capital, five Infantry, one Tank, and shared
+map visibility. They earn funds, train units, select formations, issue
+attack-move orders, fight human or server-controlled AI commanders, eliminate
+enemy Capitals, and receive one authoritative victory result. The client
+renders interpolated 10 Hz snapshots from the 30 Hz simulation and never sets
+money, ownership, damage, health, or victory itself.
+
+This online mode is intentionally smaller than the mature local skirmish. The
+local mode's construction catalog, stored-unit deployment, research doctrines,
+aircraft, missiles, automation, electronic warfare, and specialist systems
+remain local while they are extracted behind serializable server commands.
 
 ## Run locally
 
@@ -24,6 +30,14 @@ Open `http://localhost:2567/online.html`. Create a room in one browser and join
 its room code or invite URL in another. The original local game remains
 available at `http://localhost:2567/` and can still be opened directly from
 `index.html` without Node.js.
+
+Battlefield controls:
+
+- Left click or drag selects owned units.
+- Right click issues a formation move/attack-move order.
+- WASD or arrow keys pan; the mouse wheel zooms; middle-drag pans directly.
+- Space selects every owned unit.
+- `1` trains Infantry for $50 and `2` trains a Tank for $140.
 
 Useful checks:
 
@@ -51,7 +65,7 @@ Balancer in front of port 2567, terminate TLS there, and proxy both HTTP and
 WebSocket upgrade requests to this service. Keep port 2567 private to the EC2
 security group and expose only ports 80 and 443 publicly.
 
-This first version keeps lobby and match state in server memory. A service
+This version keeps lobby and match state in server memory. A service
 restart ends active rooms. That is suitable for one EC2 instance during early
 development. Redis becomes useful only when rooms must span multiple server
 processes or instances. A database is not needed until accounts, statistics,
@@ -63,17 +77,17 @@ The client sends intent messages such as ready, map selection, AI count, and
 start. The room validates them and broadcasts canonical state. Clients never
 choose the host, player seat, phase, or start time.
 
-The next implementation phase should move one deterministic skirmish slice at
-a time behind the same boundary:
+The continuing migration should move one complete local-game subsystem at a
+time behind the same boundary:
 
-1. Extract a browser-independent simulation core and seeded map generation.
-2. Give each human a server-assigned player ID and input-command queue.
-3. Run economy, construction, production, AI, movement, combat, and victory on
-   the server at the existing 30 Hz fixed step.
-4. Send compact snapshots or deltas at 10-15 Hz while clients interpolate
-   visuals and acknowledge command sequence numbers.
-5. Add late-command rejection, input rate limits, reconnect snapshots, and
-   match-end cleanup before opening the server publicly.
+1. Add server-validated construction placement and production queues.
+2. Migrate the existing economy, stored-unit deployment, and building combat.
+3. Move research and doctrine modifiers, followed by aircraft and special
+   systems, using shared pure rule functions.
+4. Replace whole-world 10 Hz snapshots with interest-filtered deltas as entity
+   counts approach the local mode's 1000-entity ceiling.
+5. Add command sequence acknowledgements, persistent reload reconnection,
+   match cleanup, and load tests before opening the server publicly.
 
 Do not network the current browser simulation by mirroring its mutable globals.
 Extract pure state transitions first; otherwise every client becomes a second

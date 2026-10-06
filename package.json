@@ -11,7 +11,7 @@
     "start": "node dist/server/main.js",
     "test": "npm run test:multiplayer && npm run test:game",
     "test:all": "npm test && npm run test:smoke",
-    "test:multiplayer": "node --import tsx --test server/domain/lobby-policy.test.ts",
+    "test:multiplayer": "node --import tsx --test server/domain/lobby-policy.test.ts server/game/MultiplayerWorld.test.ts",
     "test:lobby-live": "node --import tsx server/lobby-smoke.ts",
     "test:game": "node tests/regression.js",
     "test:smoke": "node tests/run-smoke.js"

@@ -81,17 +81,38 @@
     </section>
 
     <section id="matchView" class="online-card match-card hidden">
-      <div class="eyebrow">AUTHORITATIVE SESSION ONLINE</div>
-      <h1 id="matchHeading">MATCH STARTED</h1>
-      <p id="matchSummary"></p>
-      <div class="match-telemetry">
-        <div><span>SERVER TICK</span><strong id="serverTick">0</strong></div>
-        <div><span>TICK RATE</span><strong>30 HZ</strong></div>
-        <div><span>CONNECTION</span><strong id="matchConnection">LIVE</strong></div>
+      <div class="match-head">
+        <div>
+          <div class="eyebrow">AUTHORITATIVE BATTLEFIELD</div>
+          <h1 id="matchHeading">MATCH STARTED</h1>
+          <p id="matchSummary"></p>
+        </div>
+        <a class="quiet-button match-exit" href="/online.html">LEAVE MATCH</a>
       </div>
-      <div class="integration-note">
-        <strong>Lobby-to-match handoff is active.</strong>
-        <span>The next development step moves the RTS simulation and player commands into this server-owned session.</span>
+
+      <div class="match-command-bar">
+        <div class="resource-readout"><span>FUNDS</span><strong id="matchMoney">$0</strong></div>
+        <div class="resource-readout"><span>SELECTED</span><strong id="selectedCount">0</strong></div>
+        <button id="trainInfantry" type="button">TRAIN INFANTRY <small>$50 · [1]</small></button>
+        <button id="trainTank" type="button">TRAIN TANK <small>$140 · [2]</small></button>
+      </div>
+
+      <div id="battlefieldWrap" class="battlefield-wrap">
+        <canvas id="battlefieldCanvas" tabindex="0" aria-label="Multiplayer battlefield"></canvas>
+        <div id="matchBanner" class="match-banner hidden" role="status"></div>
+        <div class="battlefield-status">
+          <span>TICK <strong id="serverTick">0</strong></span>
+          <span>30 HZ</span>
+          <span id="matchConnection">LIVE</span>
+        </div>
+      </div>
+
+      <div class="match-footer">
+        <div id="matchRoster" class="match-roster"></div>
+        <div class="match-controls">
+          <strong>FIELD CONTROLS</strong>
+          <span>Left click or drag: select units · Right click: move/attack-move · WASD/arrows: pan · Wheel: zoom · Space: select all</span>
+        </div>
       </div>
     </section>
   </main>

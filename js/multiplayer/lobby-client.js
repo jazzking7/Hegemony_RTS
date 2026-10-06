@@ -5,12 +5,14 @@ import {
   ROOM_NAME,
   SERVER_MESSAGES
 } from '../../shared/multiplayer-protocol.js';
+import { createMatchController } from './match-client.js';
 
 const elements = Object.fromEntries([
   'connectionStatus', 'entryView', 'playerName', 'roomCode', 'createLobby', 'joinLobby', 'entryError',
   'lobbyView', 'lobbyCode', 'leaveLobby', 'inviteLink', 'copyInvite', 'rosterCount', 'playerRoster',
   'mapSize', 'aiCount', 'lobbyNotice', 'readyButton', 'startMatch', 'matchView', 'matchHeading',
-  'matchSummary', 'serverTick', 'matchConnection'
+  'matchSummary', 'serverTick', 'matchConnection', 'matchMoney', 'selectedCount', 'trainInfantry',
+  'trainTank', 'battlefieldCanvas', 'matchBanner', 'matchRoster'
 ].map(id => [id, document.getElementById(id)]));
 
 const savedName = localStorage.getItem('commandRadius.commanderName');
@@ -20,6 +22,11 @@ let client = null;
 let room = null;
 let snapshot = null;
 let countdownTimer = null;
+const matchController = createMatchController({
+  elements,
+  send: payload => room?.send(CLIENT_MESSAGES.MATCH_COMMAND, payload),
+  getSessionId: () => room?.sessionId
+});
 
 function endpoint() {
   if (location.protocol === 'file:') throw new Error('Multiplayer must be opened through the local game server. Run npm run dev, then open http://localhost:2567/online.html.');
@@ -80,11 +87,15 @@ function bindRoom(activeRoom) {
     renderLobby();
   });
   activeRoom.onMessage(SERVER_MESSAGES.MATCH_STARTED, match => showMatch(match));
+  activeRoom.onMessage(SERVER_MESSAGES.MATCH_SNAPSHOT, state => matchController.update(state));
+  activeRoom.onMessage(SERVER_MESSAGES.MATCH_ENDED, result => matchController.end(result));
   activeRoom.onMessage(SERVER_MESSAGES.MATCH_TICK, payload => {
     elements.serverTick.textContent = String(payload.tick || 0);
   });
   activeRoom.onMessage(SERVER_MESSAGES.ERROR, payload => {
-    elements.lobbyNotice.textContent = payload?.message || 'The server rejected that command.';
+    const message = payload?.message || 'The server rejected that command.';
+    if (!elements.matchView.classList.contains('hidden')) matchController.showNotice(message);
+    else elements.lobbyNotice.textContent = message;
   });
   activeRoom.onDrop?.(() => setConnection('RECONNECTING', 'warning'));
   activeRoom.onReconnect?.(() => {
@@ -162,6 +173,7 @@ function showMatch(match) {
   const total = match.players.length + match.aiCount;
   elements.matchHeading.textContent = `MATCH ${match.roomCode} STARTED`;
   elements.matchSummary.textContent = `${match.mapSize.toUpperCase()} MAP · ${match.players.length} HUMAN${match.players.length === 1 ? '' : 'S'} · ${match.aiCount} AI · ${total} COMMANDERS`;
+  matchController.start();
 }
 
 function escapeHtml(value) {
