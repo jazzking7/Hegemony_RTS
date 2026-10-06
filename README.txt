@@ -9,6 +9,15 @@ HOW TO RUN
 4. Click BEGIN SKIRMISH.
 5. The game runs locally in a modern desktop browser. No server, npm, imports, installation, or network connection are required.
 
+EARLY MULTIPLAYER DEVELOPMENT
+-----------------------------
+- The original local skirmish above still works without installation.
+- The early_local_dev branch also includes a Node.js 22+ / Colyseus multiplayer server.
+- Run `npm install` and `npm run dev`, then open http://localhost:2567/online.html.
+- The current milestone supports private create/join lobbies, invite links, ready state, host match settings, synchronized Start, reconnection, and an authoritative 30 Hz match session.
+- Battlefield simulation remains local for now; the next phase moves game state and commands into the server-owned session.
+- See docs/MULTIPLAYER.md for local testing, Docker/EC2 deployment, architecture, and the migration plan.
+
 CONTROLS
 - Left click: select a friendly building / place a selected building.
 - Drag the battlefield with left, middle, or right mouse button: pan the camera.

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Command Radius — Multiplayer</title>
+  <link rel="stylesheet" href="online.css" />
+</head>
+<body>
+  <main class="online-shell">
+    <header class="online-brand">
+      <a class="brand-mark" href="/">CR</a>
+      <div>
+        <strong>COMMAND RADIUS</strong>
+        <span>EARLY MULTIPLAYER DEVELOPMENT</span>
+      </div>
+      <div id="connectionStatus" class="connection-status">SERVER READY</div>
+    </header>
+
+    <section id="entryView" class="online-card entry-card">
+      <div class="eyebrow">PRIVATE COMMAND NETWORK</div>
+      <h1>Create or join a lobby</h1>
+      <p>Choose a commander name, invite another player, ready up, and let the host start the match.</p>
+
+      <label class="field-label" for="playerName">COMMANDER NAME</label>
+      <input id="playerName" class="text-input" maxlength="24" autocomplete="nickname" placeholder="Commander" />
+
+      <div class="entry-actions">
+        <button id="createLobby" class="primary-button" type="button">CREATE PRIVATE LOBBY</button>
+        <div class="join-row">
+          <input id="roomCode" class="text-input code-input" maxlength="12" autocomplete="off" placeholder="ROOM CODE" />
+          <button id="joinLobby" type="button">JOIN</button>
+        </div>
+      </div>
+      <p id="entryError" class="form-error" role="alert"></p>
+      <a class="back-link" href="/">← Back to local skirmish</a>
+    </section>
+
+    <section id="lobbyView" class="online-card lobby-card hidden">
+      <div class="lobby-head">
+        <div>
+          <div class="eyebrow">PRIVATE LOBBY</div>
+          <h1>ROOM <span id="lobbyCode">—</span></h1>
+        </div>
+        <button id="leaveLobby" class="quiet-button" type="button">LEAVE</button>
+      </div>
+
+      <div class="invite-row">
+        <input id="inviteLink" class="text-input" readonly aria-label="Invitation link" />
+        <button id="copyInvite" type="button">COPY INVITE</button>
+      </div>
+
+      <div class="lobby-layout">
+        <section>
+          <div class="section-title"><span>COMMANDERS</span><small id="rosterCount">0 / 5</small></div>
+          <div id="playerRoster" class="player-roster"></div>
+        </section>
+
+        <section class="settings-panel">
+          <div class="section-title"><span>MATCH SETTINGS</span><small>Host controlled</small></div>
+          <label class="setting-row">
+            <span><strong>MAP SIZE</strong><small>Standard or 50% larger in both dimensions</small></span>
+            <select id="mapSize">
+              <option value="standard">STANDARD</option>
+              <option value="large">LARGE</option>
+            </select>
+          </label>
+          <label class="setting-row">
+            <span><strong>AI COMMANDERS</strong><small>Human and AI seats share the five-player cap</small></span>
+            <select id="aiCount"></select>
+          </label>
+        </section>
+      </div>
+
+      <div id="lobbyNotice" class="lobby-notice">Waiting for commanders.</div>
+      <div class="lobby-actions">
+        <button id="readyButton" type="button">READY</button>
+        <button id="startMatch" class="primary-button" type="button" disabled>START MATCH</button>
+      </div>
+    </section>
+
+    <section id="matchView" class="online-card match-card hidden">
+      <div class="eyebrow">AUTHORITATIVE SESSION ONLINE</div>
+      <h1 id="matchHeading">MATCH STARTED</h1>
+      <p id="matchSummary"></p>
+      <div class="match-telemetry">
+        <div><span>SERVER TICK</span><strong id="serverTick">0</strong></div>
+        <div><span>TICK RATE</span><strong>30 HZ</strong></div>
+        <div><span>CONNECTION</span><strong id="matchConnection">LIVE</strong></div>
+      </div>
+      <div class="integration-note">
+        <strong>Lobby-to-match handoff is active.</strong>
+        <span>The next development step moves the RTS simulation and player commands into this server-owned session.</span>
+      </div>
+    </section>
+  </main>
+
+  <script src="/vendor/colyseus.js"></script>
+  <script type="module" src="js/multiplayer/lobby-client.js"></script>
+</body>
+</html>
