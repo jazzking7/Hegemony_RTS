@@ -265,7 +265,7 @@
     }
 
     // Optional local stress test: F8 adds up to 300 friendly infantry once.
-    if (key === 'f8' && game.started && !game.stressSpawned) {
+    if (key === 'f8' && game.started && !NETWORK_MATCH && !game.stressSpawned) {
       const cap = game.players[PLAYER_ID].capital;
       const count = Math.min(300, MAX_ENTITIES - entityCount());
       for (let i = 0; i < count; i++) {
@@ -289,4 +289,3 @@
     notify(game.paused ? 'Simulation paused.' : 'Simulation resumed.', '', 1.5);
     updateHUD();
   }
-

@@ -153,6 +153,19 @@
     return { ok:true, queued:true };
   };
 
+  const fireAimedMissileLocal = fireAimedMissileAt;
+  handlers.set('fireAimedMissileAt', args => {
+    const payload = decode(args[0]) || {};
+    game.missileAimingSiteId = payload.siteId;
+    game.missileAimSiloIndex = payload.siloIndex;
+    return fireAimedMissileLocal(payload.x, payload.y, false);
+  });
+  fireAimedMissileAt = function networkFireAimedMissile(x, y, confirmMark = false) {
+    if (applying || confirmMark) return fireAimedMissileLocal(x, y, confirmMark);
+    send('fireAimedMissileAt', [{ siteId:game.missileAimingSiteId, siloIndex:game.missileAimSiloIndex, x, y }]);
+    return { ok:true, queued:true };
+  };
+
   const confirmEnergyLocal = confirmOrbitalEnergyAim;
   handlers.set('confirmOrbitalEnergyAim', args => {
     const payload = decode(args[0]) || {};
@@ -163,6 +176,18 @@
   confirmOrbitalEnergyAim = function networkConfirmEnergy() {
     if (applying) return confirmEnergyLocal();
     send('confirmOrbitalEnergyAim', [{ systemId:game.energyAimingSystemId, target:game.energyAimTarget ? { ...game.energyAimTarget } : null }]);
+    return { ok:true, queued:true };
+  };
+
+  const fireOrbitalEnergyLocal = fireOrbitalEnergyAt;
+  handlers.set('fireOrbitalEnergyAt', args => {
+    const payload = decode(args[0]) || {};
+    game.energyAimingSystemId = payload.systemId;
+    return fireOrbitalEnergyLocal(payload.x, payload.y);
+  });
+  fireOrbitalEnergyAt = function networkFireOrbitalEnergy(x, y) {
+    if (applying) return fireOrbitalEnergyLocal(x, y);
+    send('fireOrbitalEnergyAt', [{ systemId:game.energyAimingSystemId, x, y }]);
     return { ok:true, queued:true };
   };
 
