@@ -2,6 +2,49 @@
 
 
   // ---------------------------------------------------------------------------
+  // Runtime session configuration
+  // ---------------------------------------------------------------------------
+  function getRuntimeParameter(name) {
+    if (typeof location === 'undefined' || typeof location.search !== 'string') return '';
+    const query = location.search.replace(/^\?/, '').split('&');
+    for (const part of query) {
+      const separator = part.indexOf('=');
+      const key = separator < 0 ? part : part.slice(0, separator);
+      if (key !== name) continue;
+      const value = separator < 0 ? '' : part.slice(separator + 1);
+      try { return decodeURIComponent(value.replace(/\+/g, ' ')); } catch (_) { return value; }
+    }
+    return '';
+  }
+
+  const NETWORK_MATCH = getRuntimeParameter('network') === '1';
+  const configuredPlayerId = Math.floor(Number(getRuntimeParameter('player')));
+  const PLAYER_ID = NETWORK_MATCH && Number.isInteger(configuredPlayerId)
+    ? Math.max(0, Math.min(4, configuredPlayerId))
+    : 0;
+  const configuredHumanIds = getRuntimeParameter('humans')
+    .split(',')
+    .map(value => Math.floor(Number(value)))
+    .filter(value => Number.isInteger(value) && value >= 0 && value <= 4);
+  const HUMAN_PLAYER_IDS = new Set(NETWORK_MATCH && configuredHumanIds.length ? configuredHumanIds : [PLAYER_ID]);
+  const configuredCommanderCount = Math.floor(Number(getRuntimeParameter('commanders')));
+  const NETWORK_COMMANDER_COUNT = NETWORK_MATCH && Number.isInteger(configuredCommanderCount)
+    ? Math.max(2, Math.min(5, configuredCommanderCount))
+    : 3;
+  const NETWORK_MAP_SIZE = getRuntimeParameter('map') === 'large' ? 'large' : 'standard';
+  const configuredSeed = Math.floor(Number(getRuntimeParameter('seed')));
+  const NETWORK_SEED = Number.isFinite(configuredSeed) ? configuredSeed >>> 0 : 1;
+
+  if (NETWORK_MATCH) {
+    let sharedRandomState = NETWORK_SEED || 1;
+    Math.random = () => {
+      sharedRandomState = (Math.imul(sharedRandomState, 1664525) + 1013904223) >>> 0;
+      return sharedRandomState / 4294967296;
+    };
+  }
+
+
+  // ---------------------------------------------------------------------------
   // Configuration
   // ---------------------------------------------------------------------------
   const MAP_SIZE_PRESETS = Object.freeze({
@@ -20,7 +63,6 @@
   const MAX_EFFECTS = 700;
   const FIXED_DT = 1 / 30;
   const MAX_STEPS_PER_FRAME = 3;
-  const PLAYER_ID = 0;
   const CAPITAL_INCOME_PER_MINUTE = 100;
   const AIRBASE_BASE_AIRCRAFT_CAP = 7;
   const BOMBER_TURNAROUND_SECONDS = 15;
@@ -520,4 +562,3 @@
       description: 'Reusable airborne troop transport. Drops configured infantry at the mission coordinate and emergency-drops below 40% HP.'
     }
   };
-

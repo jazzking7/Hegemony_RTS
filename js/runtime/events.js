@@ -107,8 +107,19 @@
   });
   els.restartButton.addEventListener('click', resetGame);
 
+  if (NETWORK_MATCH) {
+    game.enemyCount = NETWORK_COMMANDER_COUNT - 1;
+    game.mapSize = NETWORK_MAP_SIZE;
+    els.startOverlay.classList.add('hidden');
+    resetGame();
+  }
+
   if (typeof location !== 'undefined' && location.search.includes('debug=1')) {
     window.__RTS_DEBUG__ = {
+      PLAYER_ID,
+      HUMAN_PLAYER_IDS,
+      NETWORK_MATCH,
+      NETWORK_SEED,
       game,
       BUILDINGS,
       UNITS,
@@ -501,4 +512,3 @@
       upgradeSettlement
     };
   }
-

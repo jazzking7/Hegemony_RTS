@@ -31,6 +31,21 @@ test('plain modular runtime boots and exposes debug API', () => {
   assert.equal(debug.game.players.length, 3);
 });
 
+test('network runtime assigns the requested human commander seats', () => {
+  const context = bootProject(ROOT, 123456, '?debug=1&network=1&player=1&humans=0%2C1&commanders=3&map=large&seed=77');
+  const debug = context.__RTS_DEBUG__;
+  assert.equal(debug.NETWORK_MATCH, true);
+  assert.equal(debug.PLAYER_ID, 1);
+  assert.equal(debug.NETWORK_SEED, 77);
+  assert.equal(debug.game.mapSize, 'large');
+  assert.equal(debug.game.players.length, 3);
+  assert.equal(debug.game.players[0].isAI, false);
+  assert.equal(debug.game.players[1].isAI, false);
+  assert.equal(debug.game.players[2].isAI, true);
+  assert.equal(debug.game.camera.x, debug.game.players[1].capital.x + 80);
+  assert.equal(debug.game.camera.y, debug.game.players[1].capital.y);
+});
+
 
 test('Capital provides the guaranteed $100/min baseline income', () => {
   const { debug } = fresh();

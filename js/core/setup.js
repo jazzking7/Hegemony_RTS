@@ -27,10 +27,11 @@
     game.unitInstanceId = 1;
     game.automationId = 1;
     game.scheduleExecutionId = 1;
-    game.enemyCount = clamp(Math.round(game.enemyCount || 2), 1, 4);
+    game.enemyCount = NETWORK_MATCH ? NETWORK_COMMANDER_COUNT - 1 : clamp(Math.round(game.enemyCount || 2), 1, 4);
+    if (NETWORK_MATCH) game.mapSize = NETWORK_MAP_SIZE;
     game.players = [];
     for (let id = 0; id <= game.enemyCount; id++) {
-      game.players.push(makePlayer(id, PLAYER_NAMES[id], id !== PLAYER_ID));
+      game.players.push(makePlayer(id, PLAYER_NAMES[id], !HUMAN_PLAYER_IDS.has(id)));
     }
     game.buildings.length = 0;
     game.units.length = 0;
@@ -90,13 +91,18 @@
       const facing = Math.atan2(WORLD.height / 2 - start.y, WORLD.width / 2 - start.x);
       setupPlayerBase(i + 1, start.x, start.y, facing);
     }
+    const localCapital = game.players[PLAYER_ID]?.capital;
+    if (localCapital) {
+      game.camera.x = localCapital.x + 80;
+      game.camera.y = localCapital.y;
+    }
 
     // Give each starting base a small deployment reserve. Stored troops now
     // have persistent identities even though the legacy storage counters remain
     // as UI/compatibility mirrors.
     for (const b of game.buildings) {
       if (b.type === 'militaryBase') {
-        const basicCount = b.playerId === PLAYER_ID ? 8 : 6;
+        const basicCount = HUMAN_PLAYER_IDS.has(b.playerId) ? 8 : 6;
         for (let i = 0; i < basicCount; i++) createAndStoreUnit(b, 'basic');
         for (let i = 0; i < 2; i++) createAndStoreUnit(b, 'elite');
         createAndStoreUnit(b, 'tank');
@@ -122,4 +128,3 @@
     createBuilding('machineGun', playerId, x + Math.cos(facing + 0.75) * 245, y + Math.sin(facing + 0.75) * 245);
     createBuilding('cannon', playerId, x + Math.cos(facing - 0.75) * 270, y + Math.sin(facing - 0.75) * 270);
   }
-

@@ -69,7 +69,7 @@
       isAI,
       color: PLAYER_COLORS[id],
       dark: PLAYER_DARK[id],
-      money: id === PLAYER_ID ? 900 : 850,
+      money: HUMAN_PLAYER_IDS.has(id) ? 900 : 850,
       alive: true,
       capital: null,
       capitalReserve: [],
@@ -772,4 +772,3 @@
     els.notification.className = `notification ${tone}`.trim();
     game.notificationUntil = game.time + duration;
   }
-

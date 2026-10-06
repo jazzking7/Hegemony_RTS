@@ -16,6 +16,8 @@ This online mode is intentionally smaller than the mature local skirmish. The
 local mode's construction catalog, stored-unit deployment, research doctrines,
 aircraft, missiles, automation, electronic warfare, and specialist systems
 remain local while they are extracted behind serializable server commands.
+The active feature-parity work and completed multi-seat runtime foundation are
+tracked in `docs/FULL_GAME_MULTIPLAYER_MIGRATION.md`.
 
 ## Run locally
 

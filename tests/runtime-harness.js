@@ -19,7 +19,7 @@ function makeClassList() {
   };
 }
 
-function createRuntimeContext(seed = 123456) {
+function createRuntimeContext(seed = 123456, search = '?debug=1') {
   let randomState = seed >>> 0;
   const seededRandom = () => {
     randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
@@ -123,7 +123,7 @@ function createRuntimeContext(seed = 123456) {
     JSON, RegExp, Error, TypeError, RangeError, Promise, Symbol, Intl,
     document,
     performance: { now: () => 0 },
-    location: { search: '?debug=1' },
+    location: { search },
     navigator: { userAgent: 'node-regression' },
     devicePixelRatio: 1,
     innerWidth: 1280,
@@ -147,8 +147,8 @@ function getModulePaths(projectRoot) {
   return [...html.matchAll(/<script src="([^"]+\.js)"><\/script>/g)].map(match => match[1]);
 }
 
-function bootProject(projectRoot, seed = 123456) {
-  const context = createRuntimeContext(seed);
+function bootProject(projectRoot, seed = 123456, search = '?debug=1') {
+  const context = createRuntimeContext(seed, search);
   for (const relativePath of getModulePaths(projectRoot)) {
     const filename = path.join(projectRoot, relativePath);
     const code = fs.readFileSync(filename, 'utf8');
