@@ -24,10 +24,19 @@
     </div>`;
   }
 
+  function updateResearchSlotSummary() {
+    const slots = getResearchSlotCount(PLAYER_ID);
+    const active = game.players[PLAYER_ID]?.research?.active?.length || 0;
+    const available = Math.max(0, slots - active);
+    els.researchSlotSummary.textContent = `${available} SLOT${available === 1 ? '' : 'S'} AVAILABLE · ${active} / ${slots} active`;
+    els.researchSlotSummary.classList.toggle('slots-full', available === 0);
+  }
+
   function updateResearchProgressUI() {
     if (!els.researchModal || els.researchModal.classList.contains('hidden')) return;
     const player = game.players[PLAYER_ID];
     if (!player) return;
+    updateResearchSlotSummary();
     const activeById = new Map((player.research.active || []).map(record => [record.id, record]));
     els.researchModal.querySelectorAll('[data-research-progress-id]').forEach(container => {
       const record = activeById.get(container.dataset.researchProgressId);
@@ -135,9 +144,8 @@
     const selectedProviderId = null;
     game.researchProviderSelectionId = null;
 
-    const slots = getResearchSlotCount(PLAYER_ID);
     const active = player.research.active || [];
-    els.researchSlotSummary.textContent = `${active.length} / ${slots} slots active`;
+    updateResearchSlotSummary();
 
     if (active.length) {
       els.researchActiveList.innerHTML = active.map(record => {
@@ -436,4 +444,3 @@
   function closeResearchModal() {
     els.researchModal?.classList.add('hidden');
   }
-

@@ -6,6 +6,9 @@
   createBuildButtons();
   setBuildMenuCategory(game.buildMenuCategory || 'utility');
   refreshBuildModeControls();
+  document.getElementById('constructionPanel')?.addEventListener('pointerleave', event => {
+    event.currentTarget.classList.remove('menu-pinned');
+  });
   document.querySelectorAll('[data-build-category]').forEach(button => button.addEventListener('click', () => setBuildMenuCategory(button.dataset.buildCategory)));
   document.getElementById('continuousBuildToggle')?.addEventListener('change', event => { game.continuousBuild = !!event.currentTarget.checked; refreshBuildModeControls(); });
   document.getElementById('cancelBuildMode')?.addEventListener('click', () => setBuildMode(null));

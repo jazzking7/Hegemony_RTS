@@ -106,6 +106,7 @@
     const cancel = document.getElementById('cancelBuildMode');
     if (toggle) toggle.checked = !!game.continuousBuild;
     if (cancel) cancel.disabled = !game.buildMode;
+    document.getElementById('constructionPanel')?.classList.toggle('placing-building', !!game.buildMode);
   }
 
   function refreshBuildButtons() {
@@ -135,10 +136,14 @@
   }
 
   function setBuildMode(type) {
+    const wasBuilding = !!game.buildMode;
     if (type && game.ewAimingBuildingId) cancelEWAntennaAim();
     if (type && typeof cancelMissileAiming === 'function') cancelMissileAiming();
     if (type && typeof cancelOrbitalEnergyAiming === 'function') cancelOrbitalEnergyAiming();
     game.buildMode = type;
+    const panel = document.getElementById('constructionPanel');
+    if (type) panel?.classList.remove('menu-pinned');
+    else if (wasBuilding) panel?.classList.add('menu-pinned');
     document.querySelectorAll('.build-button').forEach(button => {
       button.classList.toggle('active', button.dataset.buildType === type);
     });
@@ -483,6 +488,60 @@
     } else if (building.type === 'deathRayTower') set('[data-energy-beam-targets]', String(building.energyBeamTargetIds?.length || 0));
   }
 
+  function renderTrainingQueue(facility) {
+    const type = facility.queue?.[0];
+    const progress = type ? clamp(facility.queueProgress / Math.max(FIXED_DT, getQueuedTrainingTime(facility)) * 100, 0, 100) : 0;
+    return `<div class="queue-line" data-live-training-queue ${type ? '' : 'hidden'}><span data-live-training-name>${UNITS[type]?.name || type || ''}</span><div class="progress-track"><div class="progress-fill" data-live-training-fill style="width:${progress}%"></div></div><span data-live-training-percent>${Math.round(progress)}%</span></div>`;
+  }
+
+  function refreshTrainingPanelLiveState(facility) {
+    const root = els.selectionContent;
+    const set = (key, value) => {
+      const node = root.querySelector(`[data-live-training="${key}"]`);
+      if (node) node.textContent = value;
+    };
+    set('queue', `${facility.queue.length}${facility.type === 'militaryBase' ? ' / 60' : ''}`);
+    set('command', hasCommandCenter(facility.playerId) ? 'ONLINE · 30% FASTER' : 'OFFLINE');
+    if (facility.type === 'militaryBase') {
+      const stored = facility.storedUnits?.filter(r => r.lifecycleState === LIFECYCLE_STATES.STORED).length || 0;
+      set('stored', `${stored} / ${MILITARY_BASE_STORAGE_CAPACITY}`);
+    } else {
+      const capacity = getAirbaseAircraftCapacity(facility.playerId);
+      const cooling = getAirbaseCoolingCount(facility);
+      const pending = (facility.bomberBay || []).filter(r => r.type === 'paratrooperPlane' && r.reloadPending).length;
+      const nextReady = getAirbaseNextReadySeconds(facility);
+      set('ready', `${getAirbaseReadyCount(facility)} / ${capacity}`);
+      set('by-type', MANNED_AIRCRAFT_TYPES.filter(type => isDefinitionUnlocked(facility.playerId, 'unit', type) || type === 'bomber').map(type => `${UNITS[type].name.replace('Super ', '')}: ${getAirbaseReadyCount(facility, type)}`).join(' · '));
+      set('cooling', `${cooling}${pending ? ` · ${pending} transport reload${pending === 1 ? '' : 's'} pending` : ''}${cooling && Number.isFinite(nextReady) ? ` · next ${Math.ceil(nextReady)}s` : ''}`);
+      set('airborne', getAirbaseAssignedActiveCount(facility));
+      set('committed', `${getAirbaseAircraftCommitment(facility)} / ${capacity}`);
+      set('wing-ready', `${getAirbaseReadyWingmanCount(facility)} / ${getAirbaseWingmanCapacity(facility)}`);
+      set('wing-cooling', getAirbaseCoolingWingmanCount(facility));
+      set('wing-active', getAirbaseActiveWingmanCount(facility));
+    }
+    root.querySelectorAll('[data-live-training-copy]').forEach(node => {
+      const type = node.dataset.liveTrainingCopy;
+      const def = UNITS[type];
+      if (facility.type === 'militaryBase') {
+        const cost = getTrainingPackageCost(facility.playerId, type, TRANSPORT_UNIT_TYPES.includes(type) ? getVehicleBuildConfiguration(facility.playerId, type) : null);
+        node.textContent = `${moneyText(cost)} · stored ${facility.storage[type] || 0} · ${def.description}`;
+      } else {
+        const config = (type === 'superFighter' || type === 'paratrooperPlane') ? getAircraftBuildConfiguration(facility.playerId, type) : null;
+        const slots = getAirbaseAvailableSlots(facility);
+        node.textContent = `${moneyText(getTrainingPackageCost(facility.playerId, type, config))} · ready ${getAirbaseReadyCount(facility, type)} · ${slots} shared airframe slot${slots === 1 ? '' : 's'} open · ${def.description}`;
+      }
+    });
+    const queue = root.querySelector('[data-live-training-queue]');
+    if (queue) {
+      const type = facility.queue[0];
+      const progress = type ? clamp(facility.queueProgress / Math.max(FIXED_DT, getQueuedTrainingTime(facility)) * 100, 0, 100) : 0;
+      queue.hidden = !type;
+      queue.querySelector('[data-live-training-name]').textContent = UNITS[type]?.name || type || '';
+      queue.querySelector('[data-live-training-fill]').style.width = `${progress}%`;
+      queue.querySelector('[data-live-training-percent]').textContent = `${Math.round(progress)}%`;
+    }
+  }
+
   function refreshSelectionPanelLiveState() {
     const e = game.selected;
     if (!e?.alive || !els.selectionContent) return;
@@ -531,6 +590,7 @@
     }
 
     if (e.type === 'missileLaunchSite') refreshMissileLaunchSitePanelState(e);
+    if (e.type === 'militaryBase' || e.type === 'airbase') refreshTrainingPanelLiveState(e);
     if (e.type === 'energyGenerator' || ENERGY_CONSUMER_TYPES.includes(e.type)) refreshDirectedEnergyPanelState(e);
   }
 
@@ -588,7 +648,7 @@
           ${level < 5 ? `<div class="stat-row"><span>Next level</span><strong>${moneyText(nextIncome)}/min</strong></div>` : '<div class="stat-row"><span>Upgrade status</span><strong>MAX LEVEL</strong></div>'}
         </div>`;
       if (e.playerId === PLAYER_ID) {
-        html += `<button class="action-button" data-action="upgrade" ${(level >= 5 || game.players[PLAYER_ID].money < upgradeCost) ? 'disabled' : ''}>
+        html += `<button class="action-button economy-upgrade" data-action="upgrade" ${(level >= 5 || game.players[PLAYER_ID].money < upgradeCost) ? 'disabled' : ''}>
           <span class="action-line"><span>${level >= 5 ? 'MAXIMUM LEVEL' : 'UPGRADE ECONOMY'}</span><span>${level >= 5 ? '—' : moneyText(upgradeCost)}</span></span>
           <small>${level >= 5 ? 'This settlement is fully upgraded.' : 'Increase this settlement\'s income by 50%.'}</small>
         </button>`;
@@ -598,7 +658,7 @@
     if (e.type === 'militaryBase') {
       const stored = e.storedUnits?.filter(r => r.lifecycleState === LIFECYCLE_STATES.STORED).length || 0;
       const commandOnline = hasCommandCenter(e.playerId);
-      html += `<div class="stat-block"><div class="stat-row"><span>Stored units</span><strong>${stored} / ${MILITARY_BASE_STORAGE_CAPACITY}</strong></div><div class="stat-row"><span>Training queue</span><strong>${e.queue.length} / 60</strong></div><div class="stat-row"><span>Command link</span><strong>${commandOnline ? 'ONLINE · 30% FASTER' : 'OFFLINE'}</strong></div></div>`;
+      html += `<div class="stat-block"><div class="stat-row"><span>Stored units</span><strong data-live-training="stored">${stored} / ${MILITARY_BASE_STORAGE_CAPACITY}</strong></div><div class="stat-row"><span>Training queue</span><strong data-live-training="queue">${e.queue.length} / 60</strong></div><div class="stat-row"><span>Command link</span><strong data-live-training="command">${commandOnline ? 'ONLINE · 30% FASTER' : 'OFFLINE'}</strong></div></div>`;
       if (e.playerId === PLAYER_ID) {
         for (const type of GROUND_UNIT_TYPES) {
           const unitDef = UNITS[type];
@@ -612,7 +672,7 @@
           }
           if (commandOnline) {
             html += `<div class="train-row">
-              <div class="train-copy"><strong>${unitDef.name}</strong><span>${moneyText(unitCost)} · stored ${e.storage[type]} · ${unitDef.description}</span></div>
+              <div class="train-copy"><strong>${unitDef.name}</strong><span data-live-training-copy="${type}">${moneyText(unitCost)} · stored ${e.storage[type]} · ${unitDef.description}</span></div>
               <div class="quick-buttons" data-train-type="${type}">
                 <button type="button" data-train-amount="max" data-train-type="${type}">MAX</button>
                 <button type="button" data-train-amount="10" data-train-type="${type}">10</button>
@@ -623,7 +683,7 @@
           } else {
             html += `<button class="action-button" data-train="${type}" ${game.players[PLAYER_ID].money < unitCost ? 'disabled' : ''}>
               <span class="action-line"><span>TRAIN ${unitDef.name.toUpperCase()}</span><span>${moneyText(unitCost)}</span></span>
-              <small>Stored: ${e.storage[type]} · ${unitDef.description}</small>
+              <small data-live-training-copy="${type}">Stored: ${e.storage[type]} · ${unitDef.description}</small>
             </button>`;
           }
         }
@@ -672,12 +732,7 @@
             html += `</div>`;
           }
         }
-        if (e.queue.length) {
-          const queuedType = e.queue[0];
-          const trainTime = UNITS[queuedType].trainTime * getTrainingMultiplier(e.playerId, queuedType);
-          const progress = clamp((e.queueProgress / trainTime) * 100, 0, 100);
-          html += `<div class="queue-line"><span>${UNITS[queuedType].name}</span><div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div><span>${Math.round(progress)}%</span></div>`;
-        }
+        html += renderTrainingQueue(e);
       }
     }
 
@@ -694,14 +749,14 @@
       const commandOnline = hasCommandCenter(e.playerId);
       const readySummary = MANNED_AIRCRAFT_TYPES.filter(type => isDefinitionUnlocked(e.playerId, 'unit', type) || type === 'bomber')
         .map(type => `${UNITS[type].name.replace('Super ', '')}: ${getAirbaseReadyCount(e, type)}`).join(' · ');
-      html += `<div class="stat-block"><div class="stat-row"><span>Ready aircraft</span><strong>${readyTotal} / ${aircraftCap}</strong></div><div class="stat-row"><span>Ready by type</span><strong>${readySummary}</strong></div><div class="stat-row"><span>Turnaround / reload</span><strong>${cooling}${paraReloadPending ? ` · ${paraReloadPending} transport reload${paraReloadPending === 1 ? '' : 's'} pending` : ''}${cooling && Number.isFinite(nextReady) ? ` · next ${Math.ceil(nextReady)}s` : ''}</strong></div><div class="stat-row"><span>Airborne / assigned</span><strong>${airborne}</strong></div><div class="stat-row"><span>Airframes maintained</span><strong>${committed} / ${aircraftCap}</strong></div><div class="stat-row"><span>Training queue</span><strong>${e.queue.length}</strong></div><div class="stat-row"><span>Command link</span><strong>${commandOnline ? 'ONLINE · 30% FASTER' : 'OFFLINE'}</strong></div></div>`;
+      html += `<div class="stat-block"><div class="stat-row"><span>Ready aircraft</span><strong data-live-training="ready">${readyTotal} / ${aircraftCap}</strong></div><div class="stat-row"><span>Ready by type</span><strong data-live-training="by-type">${readySummary}</strong></div><div class="stat-row"><span>Turnaround / reload</span><strong data-live-training="cooling">${cooling}${paraReloadPending ? ` · ${paraReloadPending} transport reload${paraReloadPending === 1 ? '' : 's'} pending` : ''}${cooling && Number.isFinite(nextReady) ? ` · next ${Math.ceil(nextReady)}s` : ''}</strong></div><div class="stat-row"><span>Airborne / assigned</span><strong data-live-training="airborne">${airborne}</strong></div><div class="stat-row"><span>Airframes maintained</span><strong data-live-training="committed">${committed} / ${aircraftCap}</strong></div><div class="stat-row"><span>Training queue</span><strong data-live-training="queue">${e.queue.length}</strong></div><div class="stat-row"><span>Command link</span><strong data-live-training="command">${commandOnline ? 'ONLINE · 30% FASTER' : 'OFFLINE'}</strong></div></div>`;
       if (isDefinitionUnlocked(e.playerId, 'unit', 'loyalWingman')) {
         const wingReady = getAirbaseReadyWingmanCount(e);
         const wingCooling = getAirbaseCoolingWingmanCount(e);
         const wingActive = getAirbaseActiveWingmanCount(e);
         const wingCap = getAirbaseWingmanCapacity(e);
         const sortieCap = getLoyalWingmanSortieCap(e.playerId);
-        html += `<div class="stat-block"><div class="stat-row"><span>Loyal Wingmen ready</span><strong>${wingReady} / ${wingCap}</strong></div><div class="stat-row"><span>LW turnaround</span><strong>${wingCooling}</strong></div><div class="stat-row"><span>LW airborne / assigned</span><strong>${wingActive}</strong></div><div class="stat-row"><span>Escort cap</span><strong>${sortieCap} PER AIRCRAFT / SORTIE</strong></div></div>`;
+        html += `<div class="stat-block"><div class="stat-row"><span>Loyal Wingmen ready</span><strong data-live-training="wing-ready">${wingReady} / ${wingCap}</strong></div><div class="stat-row"><span>LW turnaround</span><strong data-live-training="wing-cooling">${wingCooling}</strong></div><div class="stat-row"><span>LW airborne / assigned</span><strong data-live-training="wing-active">${wingActive}</strong></div><div class="stat-row"><span>Escort cap</span><strong>${sortieCap} PER AIRCRAFT / SORTIE</strong></div></div>`;
       }
       if (e.playerId === PLAYER_ID) {
         for (const type of MANNED_AIRCRAFT_TYPES) {
@@ -711,9 +766,9 @@
           const unitCost = getTrainingPackageCost(PLAYER_ID, type, buildConfig);
           const ready = getAirbaseReadyCount(e, type);
           if (commandOnline) {
-            html += `<div class="train-row"><div class="train-copy"><strong>${unitDef.name}</strong><span>${moneyText(unitCost)} · ready ${ready} · ${availableSlots} shared airframe slot${availableSlots === 1 ? '' : 's'} open · ${unitDef.description}</span></div><div class="quick-buttons"><button type="button" data-train-amount="max" data-train-type="${type}" ${availableSlots <= 0 ? 'disabled' : ''}>MAX</button><button type="button" data-train-amount="10" data-train-type="${type}" ${availableSlots <= 0 ? 'disabled' : ''}>10</button><button type="button" data-train-amount="5" data-train-type="${type}" ${availableSlots <= 0 ? 'disabled' : ''}>5</button><button type="button" data-train-amount="1" data-train-type="${type}" ${availableSlots <= 0 ? 'disabled' : ''}>1</button></div></div>`;
+            html += `<div class="train-row"><div class="train-copy"><strong>${unitDef.name}</strong><span data-live-training-copy="${type}">${moneyText(unitCost)} · ready ${ready} · ${availableSlots} shared airframe slot${availableSlots === 1 ? '' : 's'} open · ${unitDef.description}</span></div><div class="quick-buttons"><button type="button" data-train-amount="max" data-train-type="${type}" ${availableSlots <= 0 ? 'disabled' : ''}>MAX</button><button type="button" data-train-amount="10" data-train-type="${type}" ${availableSlots <= 0 ? 'disabled' : ''}>10</button><button type="button" data-train-amount="5" data-train-type="${type}" ${availableSlots <= 0 ? 'disabled' : ''}>5</button><button type="button" data-train-amount="1" data-train-type="${type}" ${availableSlots <= 0 ? 'disabled' : ''}>1</button></div></div>`;
           } else {
-            html += `<button class="action-button" data-train="${type}" ${(game.players[PLAYER_ID].money < unitCost || availableSlots <= 0) ? 'disabled' : ''}><span class="action-line"><span>TRAIN ${unitDef.name.toUpperCase()}</span><span>${moneyText(unitCost)}</span></span><small>${availableSlots > 0 ? `${availableSlots} shared airframe slot${availableSlots === 1 ? '' : 's'} open` : `AIRBASE AT ${aircraftCap}-AIRCRAFT LIMIT`} · ${unitDef.description}</small></button>`;
+            html += `<button class="action-button" data-train="${type}" ${(game.players[PLAYER_ID].money < unitCost || availableSlots <= 0) ? 'disabled' : ''}><span class="action-line"><span>TRAIN ${unitDef.name.toUpperCase()}</span><span>${moneyText(unitCost)}</span></span><small data-live-training-copy="${type}">${availableSlots > 0 ? `${availableSlots} shared airframe slot${availableSlots === 1 ? '' : 's'} open` : `AIRBASE AT ${aircraftCap}-AIRCRAFT LIMIT`} · ${unitDef.description}</small></button>`;
           }
         }
 
@@ -744,12 +799,7 @@
           </div>`;
         }
 
-        if (e.queue.length) {
-          const queuedType = e.queue[0];
-          const trainTime = getQueuedTrainingTime(e);
-          const progress = clamp((e.queueProgress / trainTime) * 100, 0, 100);
-          html += `<div class="queue-line"><span>${UNITS[queuedType]?.name || queuedType}</span><div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div><span>${Math.round(progress)}%</span></div>`;
-        }
+        html += renderTrainingQueue(e);
       }
     }
 

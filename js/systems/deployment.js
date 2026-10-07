@@ -204,6 +204,68 @@
     }));
   }
 
+  function deploymentLiveStructure() {
+    const context = getDeploymentContext();
+    return JSON.stringify([getPlayerDeploymentFacilities().map(b => b.id), context.category,
+      getDeploymentTypesForCategory(context.category), hasCommandCenter(PLAYER_ID),
+      isDefinitionUnlocked(PLAYER_ID, 'unit', 'loyalWingman')]);
+  }
+
+  function refreshAttackModalLiveState() {
+    if (els.attackModal.classList.contains('hidden')) return;
+    if (els.attackUnitRows.dataset.liveStructure !== deploymentLiveStructure()) {
+      renderAttackModal();
+      return;
+    }
+    const context = getDeploymentContext();
+    const availableByType = new Map(getDeploymentTypesForCategory(context.category).map(type => [type, getDeploymentAvailable(type, context)]));
+    els.attackUnitRows.querySelectorAll('[data-live-deployment-available]').forEach(node => {
+      node.textContent = availableByType.get(node.dataset.liveDeploymentAvailable) || 0;
+    });
+    els.attackUnitRows.querySelectorAll('[data-amount]').forEach(input => {
+      const type = input.dataset.amount;
+      const available = availableByType.get(type) || 0;
+      const amount = clamp(game.attackAmounts[type] || 0, 0, available);
+      game.attackAmounts[type] = amount;
+      input.max = String(available);
+      // Keep partial input and focus intact while the user is editing.
+      if (document.activeElement !== input || Number(input.value) > available) input.value = String(amount);
+    });
+    els.attackUnitRows.querySelectorAll('[data-step]').forEach(button => {
+      const amount = game.attackAmounts[button.dataset.type] || 0;
+      button.disabled = Number(button.dataset.step) > 0 ? amount >= (availableByType.get(button.dataset.type) || 0) : amount <= 0;
+    });
+    els.attackUnitRows.querySelectorAll('[data-deploy-quick]').forEach(button => {
+      const available = availableByType.get(button.dataset.type) || 0;
+      button.disabled = button.dataset.type === 'loiteringMunition' ? available < Number(button.dataset.deployQuick) : available <= 0;
+    });
+    els.attackUnitRows.querySelectorAll('[data-deploy-convoy]').forEach(button => {
+      const convoy = game.players[PLAYER_ID].convoys[Number(button.dataset.deployConvoy)];
+      button.disabled = !convoy || getPlayerGroundDefinitionTypes(PLAYER_ID).some(type => getDeploymentAvailable(type, context) < (Number(convoy[type]) || 0));
+    });
+    els.baseSelector.querySelectorAll('[data-base]').forEach(button => {
+      const facility = game.entityById.get(Number(button.dataset.base));
+      const count = button.querySelector('strong');
+      if (count && facility?.alive) count.textContent = getDeploymentReadyTotal(facility);
+    });
+    const description = els.baseSelector.querySelector('.deployment-context-description');
+    if (description) {
+      const chosen = getChosenBase();
+      description.textContent = getDeploymentPreferences().mode === 'global' ? deploymentCategoryDescription(context)
+        : chosen ? `${deploymentFacilityLabel(chosen)} · ${getDeploymentReadyTotal(chosen)} units ready. Deploy from this facility only.` : 'Choose a facility.';
+    }
+    const escortToggle = els.attackUnitRows.querySelector('[data-unmanned-escorts]');
+    if (escortToggle) {
+      const ready = context.facilities.reduce((sum, b) => sum + getAirbaseReadyWingmanCount(b), 0);
+      escortToggle.disabled = ready <= 0;
+      const summary = els.attackUnitRows.querySelector('[data-live-escort-summary]');
+      const selected = getSelectedMannedAircraftCount();
+      const requested = game.bringUnmannedEscorts ? Math.min(ready, selected * game.escortsPerAircraft) : 0;
+      if (summary) summary.textContent = `${ready} Loyal Wingmen ready across ${context.facilities.length} Airbase${context.facilities.length === 1 ? '' : 's'} · ${selected <= 0 ? 'select at least 1 manned aircraft' : `${requested} requested`}`;
+    }
+    updateAttackSummary();
+  }
+
   function renderAttackModal() {
     const facilities = getPlayerDeploymentFacilities();
     if (!facilities.length) { closeAttackModal(); return; }
@@ -216,6 +278,7 @@
 
     const commandOnline = hasCommandCenter(PLAYER_ID);
     const deployTypes = getDeploymentTypesForCategory(context.category);
+    els.attackUnitRows.dataset.liveStructure = deploymentLiveStructure();
     els.attackUnitRows.innerHTML = deployTypes.map(type => {
       const available = getDeploymentAvailable(type, context);
       const def = UNITS[type] || { name:getGroundDefinitionName(PLAYER_ID,type), description:getGroundDefinitionDescription(PLAYER_ID,type) };
@@ -224,7 +287,7 @@
       const quickDeploymentButtons = type === 'loiteringMunition'
         ? [100,50,10,5,1].map(count => `<button type="button" data-deploy-quick="${count}" data-type="${type}" ${available < count ? 'disabled' : ''}>${count}</button>`).join('')
         : `<button type="button" data-deploy-quick="max" data-type="${type}">MAX</button><button type="button" data-deploy-quick="10" data-type="${type}">10</button><button type="button" data-deploy-quick="5" data-type="${type}">5</button><button type="button" data-deploy-quick="1" data-type="${type}">1</button>`;
-      return `<div class="attack-unit-row"><div class="attack-unit-copy"><strong>${def.name}</strong><span>${available} available · ${def.description}</span></div><div class="deployment-controls">${commandOnline ? `<div class="quick-buttons deployment-quick">${quickDeploymentButtons}</div>` : ''}<div class="stepper"><button type="button" data-step="-1" data-type="${type}">−</button><input data-amount="${type}" type="number" min="0" max="${available}" value="${amount}" /><button type="button" data-step="1" data-type="${type}">+</button></div></div></div>`;
+      return `<div class="attack-unit-row"><div class="attack-unit-copy"><strong>${def.name}</strong><span><b data-live-deployment-available="${type}">${available}</b> available · ${def.description}</span></div><div class="deployment-controls">${commandOnline ? `<div class="quick-buttons deployment-quick">${quickDeploymentButtons}</div>` : ''}<div class="stepper"><button type="button" data-step="-1" data-type="${type}">−</button><input data-amount="${type}" type="number" min="0" max="${available}" value="${amount}" /><button type="button" data-step="1" data-type="${type}">+</button></div></div></div>`;
     }).join('');
 
     if (context.category === 'air' && isDefinitionUnlocked(PLAYER_ID, 'unit', 'loyalWingman')) {
@@ -234,7 +297,7 @@
       game.escortsPerAircraft = clamp(Math.floor(Number(game.escortsPerAircraft) || 1), 1, Math.max(1, sortieCap));
       const requestedEscorts = game.bringUnmannedEscorts ? Math.min(readyWingmen, selectedAircraft * game.escortsPerAircraft) : 0;
       const escortButtons = Array.from({length:Math.max(1,sortieCap)},(_,i)=>i+1).map(count => `<button type="button" data-escort-count="${count}" class="${game.escortsPerAircraft===count?'active':''}">${count}</button>`).join('');
-      els.attackUnitRows.innerHTML += `<div class="escort-config"><label class="escort-toggle"><input type="checkbox" data-unmanned-escorts ${game.bringUnmannedEscorts?'checked':''} ${readyWingmen<=0?'disabled':''}/><span>INCLUDE LOYAL WINGMEN</span></label><div class="escort-count"><span>Escorts per aircraft</span>${escortButtons}</div><small>${readyWingmen} Loyal Wingmen ready across ${context.facilities.length} Airbase${context.facilities.length===1?'':'s'} · ${selectedAircraft<=0?'select at least 1 manned aircraft':`${requestedEscorts} requested`}</small></div>`;
+      els.attackUnitRows.innerHTML += `<div class="escort-config"><label class="escort-toggle"><input type="checkbox" data-unmanned-escorts ${game.bringUnmannedEscorts?'checked':''} ${readyWingmen<=0?'disabled':''}/><span>INCLUDE LOYAL WINGMEN</span></label><div class="escort-count"><span>Escorts per aircraft</span>${escortButtons}</div><small data-live-escort-summary>${readyWingmen} Loyal Wingmen ready across ${context.facilities.length} Airbase${context.facilities.length===1?'':'s'} · ${selectedAircraft<=0?'select at least 1 manned aircraft':`${requestedEscorts} requested`}</small></div>`;
     }
 
     if (context.category === 'ground' && commandOnline) {

@@ -23,6 +23,7 @@
     // renders are event-driven; this lightweight pass only mutates values and
     // disabled/progress states so hovered controls never get replaced.
     if (game.selected?.alive && !game.missileAimingSiteId && !game.energyAimingSystemId) refreshSelectionPanelLiveState();
+    if (!els.attackModal.classList.contains('hidden')) refreshAttackModalLiveState();
     if (game.missileAimingSiteId) updateMissileAimingHUD();
     if (game.energyAimingSystemId) updateEnergyAimingHUD();
     if (game.coordinatePicker?.active) updateCoordinatePickerHUD();

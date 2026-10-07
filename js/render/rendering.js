@@ -3,6 +3,41 @@
   // ---------------------------------------------------------------------------
   // Rendering
   // ---------------------------------------------------------------------------
+  const networkRenderStates = new WeakMap();
+  let networkRenderAlpha = 1;
+
+  function captureNetworkRenderState() {
+    for (const entities of [game.units, game.projectiles]) {
+      for (const entity of entities) {
+        let state = networkRenderStates.get(entity);
+        if (!state) {
+          state = { view: Object.create(entity) };
+          networkRenderStates.set(entity, state);
+        }
+        state.x = entity.x;
+        state.y = entity.y;
+        state.angle = entity.angle;
+        state.progress = entity.progress;
+      }
+    }
+  }
+
+  function getNetworkRenderEntity(entity) {
+    if (!NETWORK_MATCH) return entity;
+    const state = networkRenderStates.get(entity);
+    if (!state || Math.hypot(entity.x - state.x, entity.y - state.y) > 200) return entity;
+    // A separate view keeps collision, targeting, and network state untouched.
+    const view = state.view;
+    view.x = lerp(state.x, entity.x, networkRenderAlpha);
+    view.y = lerp(state.y, entity.y, networkRenderAlpha);
+    if (Number.isFinite(entity.angle) && Number.isFinite(state.angle)) {
+      const delta = Math.atan2(Math.sin(entity.angle - state.angle), Math.cos(entity.angle - state.angle));
+      view.angle = state.angle + delta * networkRenderAlpha;
+    }
+    if (Number.isFinite(entity.progress) && Number.isFinite(state.progress)) view.progress = lerp(state.progress, entity.progress, networkRenderAlpha);
+    return view;
+  }
+
   function setWorldTransform() {
     const dpr = els.canvas._dpr || 1;
     ctx.setTransform(
@@ -47,9 +82,12 @@
     drawOrders(bounds);
 
     for (const b of game.buildings) if (b.alive && isVisible(b, bounds)) drawBuilding(b);
-    for (const u of game.units) if (u.alive && isVisible(u, bounds)) drawUnit(u);
+    for (const u of game.units) {
+      const view = getNetworkRenderEntity(u);
+      if (u.alive && isVisible(view, bounds)) drawUnit(view);
+    }
     drawDeathRayBeams(bounds);
-    for (const p of game.projectiles) drawProjectile(p);
+    for (const p of game.projectiles) drawProjectile(getNetworkRenderEntity(p));
     for (const fx of game.effects) drawEffect(fx);
     drawPlacementGhost();
     drawEWAimingOverlay();
@@ -1085,4 +1123,3 @@
     context.lineTo(cx, cy - outerRadius);
     context.closePath();
   }
-

@@ -4,8 +4,10 @@
   // Main update
   // ---------------------------------------------------------------------------
   function update(dt) {
-    updateCamera(dt);
-    positionAttackMarker();
+    if (!NETWORK_MATCH) {
+      updateCamera(dt);
+      positionAttackMarker();
+    }
     if (!game.started || game.paused || game.over) return;
     game.time += dt;
 
@@ -40,4 +42,3 @@
       game.notificationUntil = 0;
     }
   }
-

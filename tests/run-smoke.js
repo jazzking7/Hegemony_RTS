@@ -10,6 +10,7 @@ const smokeTests = [
   'ew-smoke.js',
   'macro-research-fortress-smoke.js',
   'missile-smoke.js',
+  'multiplayer-interpolation.js',
   'ui-live-refresh.js',
   'ux-navigation-smoke.js',
   'workflow-ux-smoke.js'
