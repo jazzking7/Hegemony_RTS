@@ -80,6 +80,7 @@
       const d2 = (b.x - world.x) ** 2 + (b.y - world.y) ** 2;
       if (d2 <= (b.radius + 9) ** 2 && d2 < bestD2) { bestD2 = d2; picked = b; }
     }
+    if (!picked) picked = (game.captureZones || []).find(zone => distSq(zone, world) <= zone.radius ** 2) || null;
     setSelection(picked);
   }
 

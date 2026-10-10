@@ -11,6 +11,9 @@
   let targetTick = 0;
   let simulationTick = 0;
   let applying = false;
+  let requestSequence = 0;
+  const requestPrefix = window.crypto?.randomUUID?.() || `${LOCAL_PLAYER_ID}:${Date.now()}`;
+  const commandCallbacks = new Map();
 
   function encode(value, seen = new WeakSet()) {
     if (value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
@@ -34,9 +37,11 @@
   }
 
   function send(name, args) {
-    const command = { name, args: encode(args) };
+    const requestId = `${requestPrefix}:${++requestSequence}`;
+    const command = { name, args: encode(args), requestId };
     if (transport) transport(command);
     else pendingOutbound.push(command);
+    return requestId;
   }
 
   function wrap(name, original, actorFromArgs, queuedResult = true) {
@@ -45,8 +50,9 @@
       if (applying) return original(...args);
       const actor = Number(actorFromArgs(args));
       if (actor !== LOCAL_PLAYER_ID) return original(...args);
-      send(name, args);
-      return typeof queuedResult === 'function' ? queuedResult(args) : queuedResult;
+      const requestId = send(name, args);
+      const result = typeof queuedResult === 'function' ? queuedResult(args) : queuedResult;
+      return result && typeof result === 'object' ? { ...result, requestId } : result;
     };
   }
 
@@ -59,11 +65,12 @@
     const savedSelection = game.selected;
     const savedBuildMode = game.buildMode;
     const savedNotify = typeof notify === 'function' ? notify : null;
+    let result;
     try {
       PLAYER_ID = actor;
       applying = true;
       if (remote && savedNotify) notify = () => {};
-      handler(Array.isArray(envelope.command.args) ? envelope.command.args : []);
+      result = handler(Array.isArray(envelope.command.args) ? envelope.command.args : []);
     } finally {
       if (remote && savedNotify) notify = savedNotify;
       applying = false;
@@ -73,6 +80,12 @@
         game.buildMode = savedBuildMode;
         try { renderSelectionPanel(); refreshBuildButtons(); } catch (_) { /* UI may not be mounted yet. */ }
       }
+    }
+    if (!remote) {
+      const requestId = envelope.command.requestId;
+      const callback = commandCallbacks.get(requestId);
+      commandCallbacks.delete(requestId);
+      callback?.(result);
     }
   }
 
@@ -87,14 +100,14 @@
   queueInfantryLoadoutTraining = wrap('queueInfantryLoadoutTraining', queueInfantryLoadoutTraining, args => args[0]?.playerId, args => Number(args[2]) || 1);
   queueGroundDefinitionTraining = wrap('queueGroundDefinitionTraining', queueGroundDefinitionTraining, args => args[0]?.playerId, args => Number(args[2]) || 1);
   startResearch = wrap('startResearch', startResearch, args => args[0], () => ({ ok:true, queued:true }));
-  setFighterMissileConfiguration = wrap('setFighterMissileConfiguration', setFighterMissileConfiguration, args => args[0]);
-  setParatrooperComposition = wrap('setParatrooperComposition', setParatrooperComposition, args => args[0]);
-  setVehiclePassengerComposition = wrap('setVehiclePassengerComposition', setVehiclePassengerComposition, args => args[0]);
+  setFighterMissileConfiguration = wrap('setFighterMissileConfiguration', setFighterMissileConfiguration, args => args[0], () => ({ ok:true, queued:true }));
+  setParatrooperComposition = wrap('setParatrooperComposition', setParatrooperComposition, args => args[0], () => ({ ok:true, queued:true }));
+  setVehiclePassengerComposition = wrap('setVehiclePassengerComposition', setVehiclePassengerComposition, args => args[0], () => ({ ok:true, queued:true }));
   setIFVTurretConfiguration = wrap('setIFVTurretConfiguration', setIFVTurretConfiguration, args => args[0]);
-  setConvoyDefinition = wrap('setConvoyDefinition', setConvoyDefinition, args => args[0]);
-  saveInfantryLoadout = wrap('saveInfantryLoadout', saveInfantryLoadout, args => args[0], args => ({ ok:true, loadout:{ ...args[1], id:args[2] } }));
+  setConvoyDefinition = wrap('setConvoyDefinition', setConvoyDefinition, args => args[0], () => ({ ok:true, queued:true }));
+  saveInfantryLoadout = wrap('saveInfantryLoadout', saveInfantryLoadout, args => args[0], () => ({ ok:true, queued:true }));
   deleteInfantryLoadout = wrap('deleteInfantryLoadout', deleteInfantryLoadout, args => args[0]);
-  setScheduledDeployment = wrap('setScheduledDeployment', setScheduledDeployment, args => args[0]);
+  setScheduledDeployment = wrap('setScheduledDeployment', setScheduledDeployment, args => args[0], () => ({ ok:true, queued:true }));
   trainScheduledDeployment = wrap('trainScheduledDeployment', trainScheduledDeployment, args => args[0], () => ({ ok:true, queued:true }));
   createAutomatedWarfare = wrap('createAutomatedWarfare', createAutomatedWarfare, args => args[0]?.playerId, () => ({ ok:true, queued:true }));
   pauseAutomatedWarfare = wrap('pauseAutomatedWarfare', pauseAutomatedWarfare, args => args[0]?.playerId);
@@ -192,6 +205,12 @@
   };
 
   window.__FULL_NETWORK_BRIDGE__ = {
+    onCommandResult(requestId, callback) { commandCallbacks.set(requestId, callback); },
+    rejectPending(reason) {
+      const callbacks = [...commandCallbacks.values()];
+      commandCallbacks.clear();
+      callbacks.forEach(callback => callback({ ok:false, reason }));
+    },
     setTransport(nextTransport) {
       transport = nextTransport;
       while (pendingOutbound.length) transport(pendingOutbound.shift());

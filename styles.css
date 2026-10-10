@@ -1175,3 +1175,5 @@ kbd { min-width: 26px; padding: 4px 7px; border: 1px solid rgba(255,255,255,.18)
 .action-button.economy-upgrade:hover:not(:disabled) { background:rgba(103,240,204,.28); box-shadow:0 0 20px rgba(103,240,204,.2); }
 .action-button.economy-upgrade:disabled { opacity:.55; border-color:rgba(103,240,204,.4); box-shadow:none; }
 .queue-line[hidden] { display:none; }
+.guide-link { color:var(--accent); text-decoration:none; font-size:11px; font-weight:800; padding:8px 10px; border:1px solid rgba(103,240,204,.35); border-radius:5px; white-space:nowrap; }
+.guide-link:hover, .guide-link:focus-visible { background:rgba(103,240,204,.15); }

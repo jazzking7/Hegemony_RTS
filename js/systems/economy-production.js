@@ -10,7 +10,7 @@
         total += getBuildingIncome(b);
       }
     }
-    return total;
+    return total + (game.captureIncome?.[playerId] || 0);
   }
 
   function updateEconomy(dt) {
@@ -224,4 +224,3 @@
       }
     }
   }
-

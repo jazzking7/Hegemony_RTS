@@ -665,13 +665,17 @@
     els.selectionContent.querySelector('[data-ai-loadout-soldier]')?.addEventListener('change',()=>refreshInfantryLoadoutEditorOptions());
     els.selectionContent.querySelectorAll('[data-ai-loadout-weapon], [data-ai-loadout-module]').forEach(select => select.addEventListener('change', refreshInfantryLoadoutDuplicateOptions));
     els.selectionContent.querySelector('[data-ai-save-loadout]')?.addEventListener('click',()=>{
-      const editing=game.advancedInfantryEditingLoadoutId||null, result=saveInfantryLoadout(PLAYER_ID,readInfantryLoadoutEditor(),editing);
-      if(!result.ok){notify(result.reason,'warning',3);return;} game.advancedInfantryEditingLoadoutId=null; notify(`${result.loadout.name} loadout saved.`,'good',2.5); renderSelectionPanel();
+      const editing=game.advancedInfantryEditingLoadoutId||null;
+      commitSelectionEditor(() => saveInfantryLoadout(PLAYER_ID,readInfantryLoadoutEditor(),editing), result => {
+        game.advancedInfantryEditingLoadoutId=result.loadout.id;
+        notify(`${result.loadout.name} loadout saved.`,'good',2.5);
+        renderSelectionPanel();
+      });
     });
-    els.selectionContent.querySelector('[data-ai-clear-loadout]')?.addEventListener('click',()=>{game.advancedInfantryEditingLoadoutId=null;renderSelectionPanel();});
-    els.selectionContent.querySelectorAll('[data-ai-edit-loadout]').forEach(btn=>btn.addEventListener('click',()=>{game.advancedInfantryEditingLoadoutId=btn.dataset.aiEditLoadout;renderSelectionPanel();setTimeout(()=>populateInfantryLoadoutEditor(getInfantryLoadoutById(PLAYER_ID,btn.dataset.aiEditLoadout)),0);}));
+    els.selectionContent.querySelector('[data-ai-clear-loadout]')?.addEventListener('click',()=>{game.advancedInfantryEditingLoadoutId=null;clearSelectionEditorDraft(game.selected?.id);renderSelectionPanel();});
+    els.selectionContent.querySelectorAll('[data-ai-edit-loadout]').forEach(btn=>btn.addEventListener('click',()=>{game.advancedInfantryEditingLoadoutId=btn.dataset.aiEditLoadout;clearSelectionEditorDraft(game.selected?.id);renderSelectionPanel();populateInfantryLoadoutEditor(getInfantryLoadoutById(PLAYER_ID,btn.dataset.aiEditLoadout));}));
     els.selectionContent.querySelectorAll('[data-ai-delete-loadout]').forEach(btn=>btn.addEventListener('click',()=>{if(deleteInfantryLoadout(PLAYER_ID,btn.dataset.aiDeleteLoadout)){if(String(game.advancedInfantryEditingLoadoutId)===String(btn.dataset.aiDeleteLoadout))game.advancedInfantryEditingLoadoutId=null;renderSelectionPanel();}}));
-    if(game.advancedInfantryEditingLoadoutId) setTimeout(()=>populateInfantryLoadoutEditor(getInfantryLoadoutById(PLAYER_ID,game.advancedInfantryEditingLoadoutId)),0); else refreshInfantryLoadoutEditorOptions();
+    if(game.advancedInfantryEditingLoadoutId) populateInfantryLoadoutEditor(getInfantryLoadoutById(PLAYER_ID,game.advancedInfantryEditingLoadoutId)); else refreshInfantryLoadoutEditorOptions();
   }
 
   function getAdvancedInfantryDefinitionLabel(playerId, token) {

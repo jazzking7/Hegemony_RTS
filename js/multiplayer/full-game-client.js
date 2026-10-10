@@ -23,6 +23,7 @@ async function connect() {
   room.onMessage(SERVER_MESSAGES.FULL_COMMAND, envelope => bridge.queueCommand(envelope));
   room.onMessage(SERVER_MESSAGES.FULL_TICK, payload => bridge.setTargetTick(payload?.tick || 0));
   room.onMessage(SERVER_MESSAGES.ERROR, payload => {
+    bridge.rejectPending(payload?.message || 'The server rejected that order. Your entries have been kept.');
     if (typeof notify === 'function') notify(payload?.message || 'The server rejected that order.', 'warning', 3);
   });
   room.onDrop?.(() => showConnection('RECONNECTING', 'warning'));
@@ -31,7 +32,10 @@ async function connect() {
     showConnection('ONLINE', 'online');
     room.send(CLIENT_MESSAGES.REQUEST_STATE);
   });
-  room.onLeave(() => showConnection('DISCONNECTED', 'error'));
+  room.onLeave(() => {
+    showConnection('DISCONNECTED', 'error');
+    bridge.rejectPending('Disconnected before save confirmation. Your entries have been kept.');
+  });
   room.send(CLIENT_MESSAGES.REQUEST_STATE);
   showConnection('ONLINE', 'online');
   window.__FULL_NETWORK_ROOM__ = room;

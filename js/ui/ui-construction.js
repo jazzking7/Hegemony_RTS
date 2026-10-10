@@ -545,6 +545,7 @@
   function refreshSelectionPanelLiveState() {
     const e = game.selected;
     if (!e?.alive || !els.selectionContent) return;
+    if (e.kind === 'captureZone') { refreshCaptureZonePanel(e); return; }
     const root = els.selectionContent;
 
     // Values that change continuously should be updated in-place. Never replace
@@ -595,6 +596,8 @@
   }
 
   function renderSelectionPanel() {
+    if (NETWORK_MATCH && PLAYER_ID !== LOCAL_PLAYER_ID) return;
+    rememberSelectionEditorDraft();
     const e = game.selected;
     const rightPanel = els.selectionContent?.closest?.('.right-panel');
     rightPanel?.classList.toggle('missile-site-selected', !!(e?.alive && e.type === 'missileLaunchSite'));
@@ -605,9 +608,11 @@
       els.selectionSubtitle.textContent = 'Nothing selected';
       els.selectionContent.className = 'selection-content empty-state';
       els.selectionContent.innerHTML = '';
+      renderedEditorEntityId = null;
       return;
     }
 
+    if (e.kind === 'captureZone') { renderCaptureZonePanel(e); renderedEditorEntityId = null; return; }
     const def = BUILDINGS[e.type];
     const player = game.players[e.playerId];
     els.selectionSubtitle.textContent = `${player.name} · ${Math.round(e.x)}, ${Math.round(e.y)}`;
@@ -1007,17 +1012,17 @@
     const saveSchedule = els.selectionContent.querySelector('[data-save-schedule]');
     if (saveSchedule) saveSchedule.addEventListener('click', () => {
       const schedule = readScheduledDeploymentFromEditor();
-      setScheduledDeployment(PLAYER_ID, schedule);
-      notify(`${schedule.name} saved · ${getScheduledDeploymentTotal(schedule)} primary units across 3 nodes.`, 'good', 2.6);
-      renderSelectionPanel();
+      commitSelectionEditor(() => setScheduledDeployment(PLAYER_ID, schedule), () => {
+        notify(`${schedule.name} saved · ${getScheduledDeploymentTotal(schedule)} primary units across 3 nodes.`, 'good', 2.6);
+        renderSelectionPanel();
+      });
     });
     const trainSchedule = els.selectionContent.querySelector('[data-train-schedule]');
     if (trainSchedule) trainSchedule.addEventListener('click', () => {
       const schedule = readScheduledDeploymentFromEditor();
-      setScheduledDeployment(PLAYER_ID, schedule);
-      const result = trainScheduledDeployment(PLAYER_ID);
-      if (!result.ok && !result.queued) notify(result.reason || 'No Scheduled Deployment units could be queued.', 'warning', 2.8);
-      renderSelectionPanel();
+      commitSelectionEditor(() => setScheduledDeployment(PLAYER_ID, schedule), () => {
+        commitSelectionEditor(() => trainScheduledDeployment(PLAYER_ID), () => renderSelectionPanel());
+      });
     });
     els.selectionContent.querySelectorAll('[data-automation-pause]').forEach(button => button.addEventListener('click', () => {
       const routineId = button.dataset.automationPause;
@@ -1054,8 +1059,7 @@
         facilityId: Number(els.selectionContent.querySelector('[data-aw-ground-base]')?.value), templateType, composition, schedule, focused,
         targetX: Number(els.selectionContent.querySelector('[data-aw-ground-x]')?.value), targetY: Number(els.selectionContent.querySelector('[data-aw-ground-y]')?.value)
       });
-      if (!result.ok) notify(result.reason || 'Unable to initiate Theater Routine.', 'warning', 3);
-      renderSelectionPanel(); refreshBuildButtons();
+      commitSelectionEditor(() => result, () => { renderSelectionPanel(); refreshBuildButtons(); });
     });
     const createAirAutomation = els.selectionContent.querySelector('[data-create-air-automation]');
     if (createAirAutomation) createAirAutomation.addEventListener('click', () => {
@@ -1066,8 +1070,7 @@
         escortsPerAircraft: Math.max(0, Math.floor(Number(els.selectionContent.querySelector('[data-aw-escorts]')?.value) || 0)),
         targetX: Number(els.selectionContent.querySelector('[data-aw-air-x]')?.value), targetY: Number(els.selectionContent.querySelector('[data-aw-air-y]')?.value)
       });
-      if (!result.ok) notify(result.reason || 'Unable to initiate Aerial Automated Warfare.', 'warning', 3);
-      renderSelectionPanel(); refreshBuildButtons();
+      commitSelectionEditor(() => result, () => { renderSelectionPanel(); refreshBuildButtons(); });
     });
     els.selectionContent.querySelectorAll('[data-save-passengers]').forEach(button => {
       button.addEventListener('click', () => {
@@ -1086,11 +1089,10 @@
           notify(`${UNITS[type].name} passenger composition exceeds its ${capacity}-soldier capacity.`, 'warning', 3);
           return;
         }
-        setVehiclePassengerComposition(PLAYER_ID, type, composition);
-        const saved = getVehiclePassengerComposition(PLAYER_ID, type);
-        const total = INFANTRY_UNIT_TYPES.reduce((sum, infantryType) => sum + (saved[infantryType] || 0), 0);
-        notify(`${UNITS[type].name} passenger composition saved: ${total} / ${capacity}.`, 'good', 2.5);
-        renderSelectionPanel();
+        commitSelectionEditor(() => setVehiclePassengerComposition(PLAYER_ID, type, composition), () => {
+          notify(`${UNITS[type].name} passenger composition saved: ${requested} / ${capacity}.`, 'good', 2.5);
+          renderSelectionPanel();
+        });
       });
     });
     const saveFighterLoadout = els.selectionContent.querySelector('[data-save-fighter-loadout]');
@@ -1099,9 +1101,10 @@
       const a2a = Math.max(0, Math.floor(Number(els.selectionContent.querySelector('[data-fighter-missile="airToAir"]')?.value) || 0));
       const a2g = Math.max(0, Math.floor(Number(els.selectionContent.querySelector('[data-fighter-missile="airToGround"]')?.value) || 0));
       if (a2a + a2g > capacity) return notify(`Fighter missile loadout exceeds its ${capacity}-missile capacity.`, 'warning', 3);
-      setFighterMissileConfiguration(PLAYER_ID, { airToAir: a2a, airToGround: a2g });
-      notify(`Fighter loadout saved: ${a2a} A2A / ${a2g} A2G.`, 'good', 2.3);
-      renderSelectionPanel();
+      commitSelectionEditor(() => setFighterMissileConfiguration(PLAYER_ID, { airToAir: a2a, airToGround: a2g }), () => {
+        notify(`Fighter loadout saved: ${a2a} A2A / ${a2g} A2G.`, 'good', 2.3);
+        renderSelectionPanel();
+      });
     });
     const saveParatrooperLoadout = els.selectionContent.querySelector('[data-save-paratrooper-loadout]');
     if (saveParatrooperLoadout) saveParatrooperLoadout.addEventListener('click', () => {
@@ -1114,9 +1117,10 @@
         total += amount;
       }
       if (total > capacity) return notify(`Paratrooper loadout exceeds its ${capacity}-soldier capacity.`, 'warning', 3);
-      setParatrooperComposition(PLAYER_ID, composition);
-      notify(`Paratrooper composition saved: ${total} / ${capacity}.`, 'good', 2.3);
-      renderSelectionPanel();
+      commitSelectionEditor(() => setParatrooperComposition(PLAYER_ID, composition), () => {
+        notify(`Paratrooper composition saved: ${total} / ${capacity}.`, 'good', 2.3);
+        renderSelectionPanel();
+      });
     });
 
     els.selectionContent.querySelectorAll('[data-ifv-turret]').forEach(button => {
@@ -1155,6 +1159,12 @@
     if (toggleAutoOU) toggleAutoOU.addEventListener('click', () => { setEngineerAutoOUEnabled(e, !e.engineerAutoOUEnabled); renderSelectionPanel(); });
     const ouPriority = els.selectionContent.querySelector('[data-engineer-ou-priority]');
     if (ouPriority) ouPriority.addEventListener('change', () => { setEngineerOUPriority(e, ouPriority.value); renderSelectionPanel(); });
+    restoreSelectionEditorDraft(e);
+    if (els.selectionContent.querySelector('[data-ai-loadout-soldier]')) {
+      refreshInfantryLoadoutEditorOptions();
+      restoreSelectionEditorDraft(e);
+      refreshInfantryLoadoutDuplicateOptions();
+    }
   }
 
   function setIFVTurretConfiguration(playerId, turret) {
@@ -1586,9 +1596,10 @@
       const input = els.selectionContent.querySelector(`[data-convoy-unit="${index}:${type}"]`);
       definition[type] = clamp(Math.floor(Number(input?.value) || 0), 0, 99);
     }
-    setConvoyDefinition(PLAYER_ID, index, definition);
-    notify(`${convoy.name} saved.`, 'good', 2);
-    renderSelectionPanel();
+    commitSelectionEditor(() => setConvoyDefinition(PLAYER_ID, index, definition), () => {
+      notify(`${definition.name} saved.`, 'good', 2);
+      renderSelectionPanel();
+    });
   }
 
   function setConvoyDefinition(playerId, index, definition) {

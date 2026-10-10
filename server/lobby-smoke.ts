@@ -72,12 +72,13 @@ assert.deepEqual(hostTick, guestTick);
 
 const hostCommandPromise = hostMessages.next<any>(SERVER_MESSAGES.FULL_COMMAND);
 const guestCommandPromise = guestMessages.next<any>(SERVER_MESSAGES.FULL_COMMAND);
-host.send(CLIENT_MESSAGES.FULL_COMMAND, { name: 'placeBuilding', args: ['city', 1000, 800, 0] });
+host.send(CLIENT_MESSAGES.FULL_COMMAND, { name: 'placeBuilding', args: ['city', 1000, 800, 0], requestId:'smoke-save-confirmation' });
 const [hostCommand, guestCommand] = await Promise.all([hostCommandPromise, guestCommandPromise]);
 assert.deepEqual(hostCommand, guestCommand);
 assert.equal(hostCommand.sequence, 1);
 assert.equal(hostCommand.playerId, 0);
 assert.equal(hostCommand.command.name, 'placeBuilding');
+assert.equal(hostCommand.command.requestId, 'smoke-save-confirmation');
 assert(hostCommand.tick >= 12);
 
 await Promise.all([host.leave(true), guest.leave(true)]);

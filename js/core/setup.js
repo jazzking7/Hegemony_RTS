@@ -109,6 +109,10 @@
       }
     }
 
+    initializeCaptureZones();
+    selectionEditorDrafts.clear();
+    renderedEditorEntityId = null;
+    game.advancedInfantryEditingLoadoutId = null;
     rebuildSpatialHashes();
     navGrid.rebuild();
     game.started = true;

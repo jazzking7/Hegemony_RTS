@@ -5,7 +5,9 @@ const path = require('path');
 const { bootProject, snapshot, simulate, snapshotHash } = require('./runtime-harness');
 
 const ROOT = path.resolve(__dirname, '..');
-const EXPECTED_BASELINE_HASH = '0d03e02bb72f7edfa567fafe0098d686d7629ca41fbf536a73d4b9a2bc9173e1';
+// Territory income and AI capture squads intentionally change this baseline.
+// The snapshot now includes zone ownership and timers as well as army state.
+const EXPECTED_BASELINE_HASH = '97288bc7fd5d4f6b847db67639e9cbbff55da889f7d766efd56a3ceac60dd741';
 
 function fresh(seed = 123456) {
   const context = bootProject(ROOT, seed);

@@ -1,0 +1,38 @@
+:root { color-scheme:dark; font-family:system-ui,sans-serif; color:#e1ede9; background:#091316; line-height:1.65; scroll-behavior:smooth; }
+* { box-sizing:border-box; }
+body { margin:0; }
+a { color:#80e9c6; text-underline-offset:4px; }
+header { display:flex; flex-wrap:wrap; gap:18px; justify-content:space-between; padding:22px 5vw; border-bottom:1px solid #2b4249; background:#102025; }
+.brand { font-weight:800; letter-spacing:1px; text-decoration:none; }
+nav { display:flex; flex-wrap:wrap; gap:18px; font-size:14px; }
+main { max-width:1200px; padding:30px 24px 80px; margin:auto; }
+section { margin-bottom:65px; scroll-margin-top:24px; }
+h1,h2,h3 { line-height:1.2; color:#f0fff9; }
+h1 { font-size:clamp(38px,6vw,68px); margin:12px 0; letter-spacing:-2px; }
+h2 { font-size:30px; margin:8px 0 18px; }
+h3 { font-size:20px; margin:0 0 12px; }
+p { margin:10px 0 16px; }
+.hero { padding:24px 0; }
+.hero>p:not(.eyebrow) { max-width:740px; font-size:19px; color:#b0c8c4; }
+.eyebrow { color:#83ddc4; letter-spacing:2px; font-size:12px; font-weight:800; }
+.quick-start { padding:22px 24px 22px 46px; background:#10252a; border-left:3px solid #80e9c6; }
+li { padding:5px 0 5px 5px; }
+.cards,.doctrine-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+article { background:#102025; border:1px solid #2b4249; border-radius:9px; padding:24px; }
+article p { color:#bdd0cf; font-size:15px; }
+kbd { border:1px solid #456169; padding:1px 6px; border-radius:4px; color:#a9ffe3; }
+details { border:1px solid #2b4249; border-radius:6px; margin-bottom:10px; padding:14px 18px; }
+summary { cursor:pointer; font-weight:700; color:#a9ffe3; }
+details[open]>summary { margin-bottom:12px; }
+summary:focus-visible,a:focus-visible,input:focus-visible { outline:2px solid #80e9c6; outline-offset:4px; }
+.search { display:block; font-weight:700; }
+.search input { display:block; margin:8px 0; width:100%; padding:13px 16px; font:inherit; border:1px solid #527079; border-radius:6px; background:#102025; color:#f0fff9; }
+.doctrine-card .tag { color:#80e9c6; font-size:12px; letter-spacing:1px; }
+.doctrine-card h4 { margin:20px 0 6px; }
+.doctrine-card ul { padding-left:20px; margin:0 0 14px; font-size:14px; }
+.research-entry { padding:12px 0; border-top:1px solid #2b4249; }
+.research-entry p { font-size:14px; margin:6px 0; }
+.research-entry small { color:#9bb6ba; display:block; }
+[hidden] { display:none !important; }
+footer { text-align:center; padding:24px; color:#90aaa7; border-top:1px solid #2b4249; font-size:13px; }
+@media(max-width:720px) { .cards,.doctrine-grid { grid-template-columns:1fr; } main { padding:20px 16px 40px; } article { padding:20px; } }

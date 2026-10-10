@@ -158,3 +158,4 @@ p { color: var(--muted); }
   .match-command-bar { grid-template-columns: 1fr 1fr; }
   .battlefield-wrap { height: 58vh; min-height: 380px; }
 }
+:root .lobby-guide-link { position:fixed; right:20px; bottom:18px; z-index:10; color:#a9ffe3; background:#10252a; border:1px solid #436c63; border-radius:6px; padding:9px 13px; text-decoration:none; font:700 13px system-ui,sans-serif; }

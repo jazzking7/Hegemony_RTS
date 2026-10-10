@@ -14,6 +14,7 @@
     cullInvalidLiveEntities();
     rebuildSpatialHashes();
     processPathRequests();
+    updateCaptureZones(dt);
     updateEconomy(dt);
     updateResearch(dt);
     updateTraining(dt);
@@ -22,6 +23,7 @@
     updateHives(dt);
     updateFortresses(dt);
     updateAI(dt);
+    updateCaptureZoneAI(dt);
     updateMissileLaunchSites(dt);
     updateMissileZones(dt);
     updateElectronicWarfare(dt);

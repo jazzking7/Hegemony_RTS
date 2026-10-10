@@ -27,7 +27,7 @@ export class LobbyRoom extends Room {
     sequence: number;
     tick: number;
     playerId: number;
-    command: { name: string; args: unknown[] };
+    command: { name: string; args: unknown[]; requestId?: string };
   }> = [];
 
   onCreate(): void {
@@ -163,7 +163,7 @@ export class LobbyRoom extends Room {
       return this.sendError(client, 'The battlefield is not accepting orders.');
     }
     const player = this.state.players.get(client.sessionId);
-    const command = payload as { name?: unknown; args?: unknown };
+    const command = payload as { name?: unknown; args?: unknown; requestId?: unknown };
     const name = String(command?.name ?? '');
     if (!player || !player.connected) return this.sendError(client, 'Your commander is not connected.');
     if (!/^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/.test(name) || !Array.isArray(command?.args)) {
@@ -176,7 +176,7 @@ export class LobbyRoom extends Room {
       sequence: ++this.commandSequence,
       tick: this.state.serverTick + 12,
       playerId: player.seat,
-      command: { name, args: command.args }
+      command: { name, args: command.args, ...(typeof command.requestId === 'string' && command.requestId.length <= 64 ? { requestId:command.requestId } : {}) }
     };
     this.commandHistory.push(envelope);
     this.broadcast(SERVER_MESSAGES.FULL_COMMAND, envelope);

@@ -76,6 +76,7 @@
     setWorldTransform();
     const bounds = getVisibleBounds();
     drawTerrain(bounds);
+    drawCaptureZones(bounds);
     drawMissileZones(bounds);
     drawEnergyFields(bounds);
     drawBuildRanges(bounds);
@@ -98,6 +99,42 @@
     setScreenTransform();
     if (!game.missileAimingSiteId && !game.energyAimingSystemId && !game.coordinatePicker?.active) drawMinimap();
     updatePlacementBadge();
+  }
+
+  function drawCaptureZones(bounds) {
+    ctx.save();
+    // Lines explicitly show which adjacent zones belong to the same region.
+    ctx.setLineDash([7, 9]);
+    ctx.lineWidth = 1 / game.camera.zoom;
+    for (const region of game.captureRegions || []) {
+      ctx.strokeStyle = region.ownerId === null ? 'rgba(175,200,211,.18)' : `${game.players[region.ownerId].color}55`;
+      ctx.beginPath();
+      region.zones.forEach((zone, i) => i ? ctx.lineTo(zone.x, zone.y) : ctx.moveTo(zone.x, zone.y));
+      ctx.closePath(); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    for (const zone of game.captureZones || []) {
+      if (!isVisible(zone, bounds)) continue;
+      const color = zone.contested ? '#ffc879' : zone.ownerId !== null ? game.players[zone.ownerId].color : '#91b0bd';
+      ctx.fillStyle = `${color}18`;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = (game.selected === zone ? 3 : 1.5) / game.camera.zoom;
+      ctx.beginPath(); ctx.arc(zone.x, zone.y, zone.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      if (zone.progress > 0 && zone.ownerId === null) {
+        ctx.strokeStyle = game.players[zone.claimantId]?.color || color;
+        ctx.lineWidth = 4 / game.camera.zoom;
+        ctx.beginPath(); ctx.arc(zone.x, zone.y, zone.radius - 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * zone.progress / CAPTURE_RULES.captureSeconds); ctx.stroke();
+      }
+      ctx.textAlign = 'center'; ctx.fillStyle = color;
+      ctx.font = `bold ${13 / game.camera.zoom}px sans-serif`;
+      ctx.fillText(zone.label, zone.x, zone.y - 3 / game.camera.zoom);
+      ctx.font = `${10 / game.camera.zoom}px sans-serif`;
+      const label = zone.contested ? (zone.ownerId !== null ? `CONTESTED ${Math.ceil(10 - zone.invasion)}s` : 'CONTESTED')
+        : zone.ownerId !== null ? (zone.abandoned > 0 ? `VACANT ${Math.ceil(60 - zone.abandoned)}s` : '+$500/min')
+        : zone.claimantId !== null ? `${Math.ceil(20 - zone.progress)}s` : 'NEUTRAL';
+      ctx.fillText(label, zone.x, zone.y + 15 / game.camera.zoom);
+    }
+    ctx.restore();
   }
 
   function drawEnergyFields(bounds) {
@@ -335,7 +372,7 @@
       ctx.setLineDash([]);
     }
 
-    if (game.selected?.alive) {
+    if (game.selected?.alive && game.selected.kind !== 'captureZone') {
       const def = BUILDINGS[game.selected.type];
       let r = def.range ? getEntityStat(game.selected, 'range', def.range) : (game.selected.type === 'capital' ? def.buildRange : 0);
       if (game.selected.type === 'energyGenerator') r = getGeneratorRange(game.selected.playerId);
@@ -1075,6 +1112,10 @@
     roundRect(ctx, x, y, width, height, 5); ctx.fill(); ctx.stroke();
     const sx = width / WORLD.width;
     const sy = height / WORLD.height;
+    for (const zone of game.captureZones || []) {
+      ctx.strokeStyle = zone.contested ? '#ffc879' : zone.ownerId !== null ? game.players[zone.ownerId].color : '#91b0bd';
+      ctx.beginPath(); ctx.arc(x + zone.x * sx, y + zone.y * sy, 3, 0, Math.PI * 2); ctx.stroke();
+    }
     for (const b of game.buildings) {
       if (!b.alive || (b.type === 'landmine' && b.playerId !== PLAYER_ID)) continue;
       ctx.fillStyle = game.players[b.playerId].color;

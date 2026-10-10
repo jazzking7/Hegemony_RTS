@@ -464,5 +464,5 @@
     restartButton: document.getElementById('restartButton')
   };
 
-  const ctx = els.canvas.getContext('2d', { alpha: false, desynchronized: true });
-
+  // The field guide shares these definitions without mounting a battlefield.
+  const ctx = els.canvas?.getContext?.('2d', { alpha: false, desynchronized: true }) || null;

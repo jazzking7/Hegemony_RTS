@@ -166,6 +166,8 @@ function snapshot(debug) {
   const game = debug.game;
   return {
     time: round(game.time),
+    captureZones: (game.captureZones || []).map(z => ({ id:z.id, x:round(z.x), y:round(z.y), regionId:z.regionId, ownerId:z.ownerId, claimantId:z.claimantId, contested:z.contested, progress:round(z.progress), invasion:round(z.invasion), abandoned:round(z.abandoned) })),
+    captureIncome: [...(game.captureIncome || [])],
     players: game.players.map(player => ({
       id: player.id,
       alive: player.alive,
