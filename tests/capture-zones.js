@@ -9,23 +9,68 @@ const fresh = (search = '?debug=1') => {
   return c;
 };
 
-for (const map of ['standard', 'large']) for (const seed of [1, 12, 77, 9001]) {
-  const search = `?debug=1&network=1&player=0&humans=0%2C1&commanders=5&map=${map}&seed=${seed}`;
+for (const map of ['standard', 'large']) for (const seed of [1, 12, 77, 9001, ...Array.from({length:20},(_,i)=>i*7919+19)]) {
+  const search = `?debug=1&network=1&player=0&humans=0%2C1&commanders=${2+seed%4}&map=${map}&seed=${seed}`;
   const c = fresh(search), g = c.__RTS_DEBUG__.game;
+  const width=map === 'large' ? 5400 : 3600, height=map === 'large' ? 3300 : 2200;
   assert.equal(g.captureZones.length, map === 'large' ? 25 : 16);
   assert.equal(g.captureRegions.length, map === 'large' ? 8 : 6);
   assert.equal(g.captureRegions.reduce((n,r) => n + r.zones.length, 0), g.captureZones.length);
+  assert(Math.abs(g.captureZones.reduce((n,z)=>n+z.territoryArea,0)-width*height)<1e-6, 'Polygons cover the complete map area');
+  assert(g.captureZones.some(z=>Math.hypot(z.x-width/2,z.y-height/2)<height*.15), 'A zone covers the central map');
   for (const a of g.captureZones) {
     assert.equal(a.ownerId, null);
     assert.equal(a.radius, 60);
     assert(a.x >= 60 && a.y >= 60 && a.x <= (map === 'large' ? 5400 : 3600) - 60 && a.y <= (map === 'large' ? 3300 : 2200) - 60);
     for (const b of g.captureZones) if (a !== b) assert(Math.hypot(a.x-b.x,a.y-b.y) >= 200);
     assert(g.buildings.every(b => Math.hypot(a.x-b.x,a.y-b.y) > b.radius + 60));
+    assert(c.territoryContainsCircle(a.territory,a,60), 'Full capture circle fits its polygon');
+    const perimeter=a.territory.reduce((n,p,i)=>{const q=a.territory[(i+1)%a.territory.length];return n+Math.hypot(p.x-q.x,p.y-q.y);},0);
+    assert(4*Math.PI*a.territoryArea/perimeter**2 > .45, 'Territories remain compact, without thin slivers');
+    const box=a.territoryBounds, w=box.right-box.left, h=box.bottom-box.top;
+    assert(Math.max(w/h,h/w)<3, 'Territories have bounded aspect ratios');
+    for (const b of g.captureZones) if (a.id < b.id) {
+      let intersection=a.territory;
+      for (let i=0;i<b.territory.length;i++) {
+        const p=b.territory[i],q=b.territory[(i+1)%b.territory.length],nx=q.y-p.y,ny=p.x-q.x;
+        intersection=c.clipTerritoryPolygon(intersection,nx,ny,nx*p.x+ny*p.y);
+      }
+      assert(c.territoryPolygonArea(intersection)<1e-6, 'Territory interiors never overlap');
+    }
+  }
+  for (const region of g.captureRegions) {
+    const visited=new Set(), pending=[region.zones[0]];
+    while(pending.length) {
+      const z=pending.pop();if(visited.has(z.id))continue;visited.add(z.id);
+      for(const edge of z.territoryEdges) if(edge.neighborId && !edge.regional) pending.push(g.captureZones.find(other=>other.id===edge.neighborId));
+    }
+    assert.equal(visited.size,region.zones.length,'Every region is one connected group of adjacent territories');
   }
   const peer = fresh(search.replace('player=0', 'player=1'));
   assert.equal(JSON.stringify(g.captureZones), JSON.stringify(peer.__RTS_DEBUG__.game.captureZones), 'All seats generate identical territory');
 }
 console.log('PASS exact zone/region counts, spacing, initial neutrality and shared-seed layouts');
+
+{
+  const c=fresh(),g=c.__RTS_DEBUG__.game,z=g.captureZones.find(z=>!c.isInsideFriendlyBuildZone(0,z.x,z.y,20));
+  g.players[0].money=10000;
+  const before=c.checkPlacement('city',z.x,z.y,0);
+  c.advanceCaptureZone(z,1,20);c.rebuildCaptureIncome();
+  assert.equal(g.territorialControl[0],z.territoryArea);
+  assert.deepEqual(c.checkPlacement('city',z.x,z.y,0),before,'Territorial ownership never changes construction eligibility');
+  assert.equal(before.reason,'Outside construction radius');
+  c.advanceCaptureZone(z,2,9);c.rebuildCaptureIncome();
+  assert.equal(g.territorialControl[0],z.territoryArea,'Grace retains owned area');
+  assert.equal(g.captureIncome[0],0,'Contested grace has no income');
+  c.advanceCaptureZone(z,2,1);c.rebuildCaptureIncome();
+  assert.equal(g.territorialControl[0],0,'Revocation removes owned area');
+  for(const zone of g.captureZones) {zone.ownerId=0;zone.contested=false;}
+  c.rebuildCaptureIncome();c.updateHUD();
+  assert.equal(c.document.getElementById('territorialControlValue').textContent,'100.00%');
+  assert.equal(g.captureDetails,false);
+  assert.doesNotThrow(()=>c.draw());g.captureDetails=true;assert.doesNotThrow(()=>c.draw());
+}
+console.log('PASS polygon coverage, compactness, area-based control, central coverage and unchanged construction rules');
 
 {
   const c = fresh(), g = c.__RTS_DEBUG__.game, z = g.captureZones[0];
@@ -71,14 +116,14 @@ console.log('PASS capture pause/reset, uninterrupted invasion grace, fresh recap
   const region = g.captureRegions[0];
   for (const zone of region.zones) { zone.ownerId = 0; zone.contested = false; }
   c.rebuildCaptureIncome();
-  assert.equal(g.captureIncome[0], region.zones.length * 600);
+  assert.equal(g.captureIncome[0], region.zones.length * 300);
   const money = g.players[0].money;
   c.updateEconomy(60);
-  assert(Math.abs(g.players[0].money - money - baseIncome - region.zones.length*600) < 1e-6);
+  assert(Math.abs(g.players[0].money - money - baseIncome - region.zones.length*300) < 1e-6);
   z.contested = true; c.rebuildCaptureIncome();
-  assert.equal(g.captureIncome[0], (region.zones.length - 1) * 500, 'Contesting one zone removes that income and the complete region bonus');
+  assert.equal(g.captureIncome[0], (region.zones.length - 1) * 200, 'Contesting one zone removes that income and the complete region bonus');
   z.contested = false; z.abandoned = 59; c.rebuildCaptureIncome();
-  assert.equal(g.captureIncome[0], region.zones.length * 600, 'Vacancy grace keeps zone and region income');
+  assert.equal(g.captureIncome[0], region.zones.length * 300, 'Vacancy grace keeps zone and region income');
   g.selected = z; c.renderSelectionPanel(); c.refreshSelectionPanelLiveState();
   assert(c.document.getElementById('selectionContent').innerHTML.includes('DEPLOY TO THIS ZONE'));
   assert.doesNotThrow(() => c.draw(), 'Drawing a selected zone must not assume it is a building');

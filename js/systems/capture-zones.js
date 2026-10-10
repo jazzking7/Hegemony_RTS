@@ -2,7 +2,7 @@
 
 // Capture logic runs on the shared fixed-step simulation. Its layout has its
 // own random stream so drawing or UI activity cannot change multiplayer state.
-const CAPTURE_RULES = Object.freeze({ radius:60, spacing:200, captureSeconds:20, invasionSeconds:10, abandonmentSeconds:60, income:500, regionBonus:100 });
+const CAPTURE_RULES = Object.freeze({ radius:60, spacing:200, captureSeconds:20, invasionSeconds:10, abandonmentSeconds:60, income:200, regionBonus:100 });
 const captureQueryScratch = [];
 let captureQueryPadding = 100;
 
@@ -14,45 +14,88 @@ function initializeCaptureZones() {
   let seed = NETWORK_MATCH ? NETWORK_SEED : Math.floor(Math.random() * 4294967296);
   const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
   const large = game.mapSize === 'large';
-  const columns = large ? 4 : 3, rows = 2, total = large ? 25 : 16;
-  const cellWidth = WORLD.width / columns, cellHeight = WORLD.height / rows;
-  captureQueryPadding = Math.max(0, ...Object.values(BUILDINGS).map(d => d.radius || 0), ...Object.values(UNITS).map(d => d.radius || 0));
-  for (let regionId = 0; regionId < columns * rows; regionId++) {
-    const count = Math.floor(total / (columns * rows)) + (regionId < total % (columns * rows) ? 1 : 0);
-    const cx = (regionId % columns + 0.5) * cellWidth;
-    const cy = (Math.floor(regionId / columns) + 0.5) * cellHeight;
-    const region = { id:regionId, name:`Region ${String.fromCharCode(65 + regionId)}`, zones:[], ownerId:null };
-    const rotation = random() * Math.PI * 2;
-    for (let index = 0; index < count; index++) {
-      let point = null;
-      // Keep each region geographically grouped; avoid free starting captures.
-      for (let attempt = 0; attempt < 200; attempt++) {
-        const angle = rotation + index / count * Math.PI * 2 + (random() - 0.5) * 0.45;
-        const radius = Math.min(cellWidth, cellHeight) * (0.19 + random() * 0.13);
-        const candidate = { x:cx + Math.cos(angle) * radius, y:cy + Math.sin(angle) * radius };
-        if (game.captureZones.some(z => distance(z, candidate) < CAPTURE_RULES.spacing)) continue;
-        if (game.buildings.some(b => distance(b, candidate) < b.radius + CAPTURE_RULES.radius + 70)) continue;
-        point = candidate;
-        break;
-      }
-      // Deterministic bounded fallback for crowded starting layouts.
-      if (!point) {
-        for (let y = Math.floor(regionId / columns) * cellHeight + 100; y < (Math.floor(regionId / columns) + 1) * cellHeight - 80 && !point; y += 100) {
-          for (let x = regionId % columns * cellWidth + 100; x < (regionId % columns + 1) * cellWidth - 80; x += 100) {
-            const candidate = { x, y };
-            if (game.captureZones.every(z => distance(z, candidate) >= CAPTURE_RULES.spacing) && game.buildings.every(b => distance(b, candidate) >= b.radius + CAPTURE_RULES.radius + 70)) { point = candidate; break; }
-          }
-        }
-      }
-      if (!point) throw new Error('Unable to place capture zones with the required spacing.');
-      const zone = { ...point, id:`zone-${game.captureZones.length + 1}`, kind:'captureZone', type:'captureZone', alive:true,
-        label:`${String.fromCharCode(65 + regionId)}${index + 1}`, regionId, radius:CAPTURE_RULES.radius,
-        ownerId:null, claimantId:null, progress:0, invasion:0, abandoned:0, contested:false, presence:0 };
-      game.captureZones.push(zone);
-      region.zones.push(zone);
-    }
-    game.captureRegions.push(region);
+  const side = large ? 5 : 4;
+  const cellWidth = WORLD.width / side, cellHeight = WORLD.height / side;
+  const seeds = [];
+  // A bounded jittered lattice keeps cells broad and fills the whole map.
+  // Pull one interior seed toward the center instead of leaving a central hole.
+  for (let row = 0; row < side; row++) for (let col = 0; col < side; col++) {
+    const central = row === Math.floor((side - 1) / 2) && col === Math.floor((side - 1) / 2);
+    seeds.push({ x:central ? WORLD.width / 2 - cellWidth * 0.08 : (col + 0.5 + (random() - 0.5) * 0.22) * cellWidth,
+      y:central ? WORLD.height / 2 - cellHeight * 0.08 : (row + 0.5 + (random() - 0.5) * 0.22) * cellHeight, row, col });
   }
+  const regionColumns = large ? 4 : 3;
+  for (let id = 0; id < regionColumns * 2; id++) game.captureRegions.push({ id, name:`Region ${String.fromCharCode(65 + id)}`, zones:[], ownerId:null });
+  captureQueryPadding = Math.max(0, ...Object.values(BUILDINGS).map(d => d.radius || 0), ...Object.values(UNITS).map(d => d.radius || 0));
+  for (const seedPoint of seeds) {
+    let polygon = [{x:0,y:0},{x:WORLD.width,y:0},{x:WORLD.width,y:WORLD.height},{x:0,y:WORLD.height}];
+    for (const other of seeds) {
+      if (other === seedPoint) continue;
+      const nx = other.x - seedPoint.x, ny = other.y - seedPoint.y;
+      const limit = (other.x ** 2 + other.y ** 2 - seedPoint.x ** 2 - seedPoint.y ** 2) / 2;
+      polygon = clipTerritoryPolygon(polygon, nx, ny, limit);
+    }
+    const band = seedPoint.row < Math.ceil(side / 2) ? 0 : 1;
+    const regionId = band * regionColumns + Math.min(regionColumns - 1, Math.floor(seedPoint.col * regionColumns / side));
+    const region = game.captureRegions[regionId];
+    let point = null;
+    // Zone positions are independent of polygon centers, but the entire circle
+    // must fit inside its territory and stay clear of starting structures.
+    for (let attempt = 0; attempt < 300; attempt++) {
+      const spread = attempt < 100 ? 0.24 : 0.65;
+      const candidate = { x:seedPoint.x + (random() - 0.5) * cellWidth * spread, y:seedPoint.y + (random() - 0.5) * cellHeight * spread };
+      if (!territoryContainsCircle(polygon, candidate, CAPTURE_RULES.radius + 10)) continue;
+      if (game.captureZones.some(z => distance(z, candidate) < CAPTURE_RULES.spacing)) continue;
+      if (game.buildings.some(b => distance(b, candidate) < b.radius + CAPTURE_RULES.radius + 70)) continue;
+      point = candidate; break;
+    }
+    if (!point) throw new Error('Unable to place a capture zone inside its territory.');
+    const area = territoryPolygonArea(polygon);
+    const zone = { ...point, id:`zone-${game.captureZones.length + 1}`, kind:'captureZone', type:'captureZone', alive:true,
+      label:`${String.fromCharCode(65 + regionId)}${region.zones.length + 1}`, regionId, radius:CAPTURE_RULES.radius,
+      territory:polygon, territoryArea:area,
+      territoryBounds:{left:Math.min(...polygon.map(p=>p.x)),right:Math.max(...polygon.map(p=>p.x)),top:Math.min(...polygon.map(p=>p.y)),bottom:Math.max(...polygon.map(p=>p.y))},
+      ownerId:null, claimantId:null, progress:0, invasion:0, abandoned:0, contested:false, presence:0 };
+    game.captureZones.push(zone); region.zones.push(zone);
+  }
+  // Classify shared borders once. Region boundaries remain clear without
+  // drawing artificial links between zone circles.
+  for (const zone of game.captureZones) zone.territoryEdges = zone.territory.map((a, i) => {
+    const b = zone.territory[(i + 1) % zone.territory.length];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    const neighbor = game.captureZones.find(other => other !== zone && other.territory.some((c,j) => {
+      const d = other.territory[(j + 1) % other.territory.length];
+      return Math.abs((c.x+d.x)/2-mx) < 0.01 && Math.abs((c.y+d.y)/2-my) < 0.01;
+    }));
+    return {a,b,neighborId:neighbor?.id || null,regional:!neighbor || neighbor.regionId !== zone.regionId, draw:!neighbor || zone.id < neighbor.id};
+  });
+  game.captureDetails = false;
+  document.getElementById('captureDetailsButton')?.setAttribute('aria-pressed', 'false');
+  rebuildCaptureIncome();
+}
+
+// Convex half-plane clipping produces a complete, non-overlapping map partition.
+function clipTerritoryPolygon(polygon, nx, ny, limit) {
+  const result = [];
+  for (let i = 0; i < polygon.length; i++) {
+    const a = polygon[i], b = polygon[(i + 1) % polygon.length];
+    const da = a.x * nx + a.y * ny - limit, db = b.x * nx + b.y * ny - limit;
+    if (da <= 0) result.push(a);
+    if ((da <= 0) !== (db <= 0)) {
+      const t = da / (da - db);
+      result.push({x:a.x + (b.x-a.x)*t, y:a.y + (b.y-a.y)*t});
+    }
+  }
+  return result;
+}
+function territoryPolygonArea(polygon) {
+  return Math.abs(polygon.reduce((sum,a,i) => { const b=polygon[(i+1)%polygon.length]; return sum+a.x*b.y-b.x*a.y; },0)) / 2;
+}
+function territoryContainsCircle(polygon, point, radius = 0) {
+  return polygon.every((a,i) => {
+    const b=polygon[(i+1)%polygon.length], dx=b.x-a.x, dy=b.y-a.y;
+    return dx*(point.y-a.y)-dy*(point.x-a.x) >= radius*Math.hypot(dx,dy)-1e-7;
+  });
 }
 
 function getCaptureZonePresence(zone) {
@@ -109,7 +152,9 @@ function advanceCaptureZone(zone, mask, dt) {
 
 function rebuildCaptureIncome() {
   game.captureIncome = game.players.map(() => 0);
+  game.territorialControl = game.players.map(() => 0);
   for (const zone of game.captureZones || []) {
+    if (zone.ownerId !== null) game.territorialControl[zone.ownerId] += zone.territoryArea || 0;
     if (zone.ownerId !== null && !zone.contested) game.captureIncome[zone.ownerId] += CAPTURE_RULES.income;
   }
   for (const region of game.captureRegions || []) {
@@ -177,7 +222,7 @@ function refreshCaptureZonePanel(zone) {
   const region = game.captureRegions[zone.regionId];
   set('[data-zone-status]', captureZoneStatus(zone));
   set('[data-zone-owner]', zone.ownerId === null ? 'NONE' : game.players[zone.ownerId].name);
-  set('[data-zone-income]', zone.ownerId !== null && !zone.contested ? '$500/min' : '$0/min');
+  set('[data-zone-income]', zone.ownerId !== null && !zone.contested ? `$${CAPTURE_RULES.income}/min` : '$0/min');
   const owned = region.zones.filter(z => z.ownerId === PLAYER_ID && !z.contested).length;
   set('[data-zone-region]', `${owned} / ${region.zones.length} yours · ${region.ownerId === PLAYER_ID ? '+' : 'complete for +'}$${region.zones.length * CAPTURE_RULES.regionBonus}/min`);
   const fill = els.selectionContent.querySelector('[data-zone-progress]');

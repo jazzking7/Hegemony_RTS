@@ -84,6 +84,7 @@
     game.drag.ignoreNextClick = false;
     els.canvas.classList.remove('dragging');
     closeResearchModal();
+    closeQuickRead(false);
 
     setupPlayerBase(0, layout.human.x, layout.human.y, 0);
     for (let i = 0; i < layout.enemies.length; i++) {

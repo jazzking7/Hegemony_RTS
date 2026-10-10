@@ -11,6 +11,11 @@
     const energyCost = typeof calculateEnergyOperatingCostPerMinute === 'function' ? calculateEnergyOperatingCostPerMinute(PLAYER_ID) : 0;
     const netIncome = grossIncome - energyCost;
     els.income.textContent = `${netIncome < 0 ? '-' : ''}${moneyText(Math.abs(netIncome))}/min`;
+    const controlledArea = game.territorialControl?.[PLAYER_ID] || 0;
+    const controlValue = document.getElementById('territorialControlValue');
+    const areaValue = document.getElementById('territorialAreaValue');
+    if (controlValue) controlValue.textContent = `${(controlledArea / (WORLD.width * WORLD.height) * 100).toFixed(2)}%`;
+    if (areaValue) areaValue.textContent = `${Math.round(controlledArea).toLocaleString()} units²`;
     const activeUnits = game.units.filter(u => u.alive && u.playerId === PLAYER_ID).length;
     const storedUnits = game.buildings.filter(b => b.alive && b.playerId === PLAYER_ID && DEPLOYMENT_FACILITY_TYPES.includes(b.type)).reduce((sum, b) => sum + Object.values(b.storage).reduce((a, n) => a + n, 0), 0);
     const reserveUnits = getCapitalReserveCount(PLAYER_ID);
@@ -220,6 +225,12 @@
     const key = event.key.toLowerCase();
     const editingField = event.target?.matches?.('input, textarea, select, [contenteditable="true"]');
     if (editingField && key !== 'escape') return;
+    if (key === 'h' && !event.repeat) { event.preventDefault(); toggleQuickRead(); return; }
+    if (isQuickReadOpen()) {
+      if (key === 'escape') { event.preventDefault(); closeQuickRead(); }
+      else if (key === 'tab') trapQuickReadFocus(event);
+      return;
+    }
     if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) event.preventDefault();
     game.keys.add(key);
 

@@ -433,6 +433,7 @@
 
   function openResearchModal() {
     if (!els.researchModal || !game.players[PLAYER_ID]?.capital?.alive) return;
+    closeQuickRead(false);
     cancelEWAntennaAim();
     if (typeof cancelMissileAiming === 'function') cancelMissileAiming();
     if (typeof cancelOrbitalEnergyAiming === 'function') cancelOrbitalEnergyAiming();

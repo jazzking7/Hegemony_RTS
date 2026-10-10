@@ -5,9 +5,9 @@ const path = require('path');
 const { bootProject, snapshot, simulate, snapshotHash } = require('./runtime-harness');
 
 const ROOT = path.resolve(__dirname, '..');
-// Territory income and AI capture squads intentionally change this baseline.
-// The snapshot now includes zone ownership and timers as well as army state.
-const EXPECTED_BASELINE_HASH = '97288bc7fd5d4f6b847db67639e9cbbff55da889f7d766efd56a3ceac60dd741';
+// Compact territories, central zones and $200 income change AI movement and
+// economy. Includes owned area; verified against two independent seeded runs.
+const EXPECTED_BASELINE_HASH = 'd5a7722f54170bf978b0665c63734710a2737ba66388d378b817dc61cc380cd1';
 
 function fresh(seed = 123456) {
   const context = bootProject(ROOT, seed);

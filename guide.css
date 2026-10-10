@@ -36,3 +36,25 @@ summary:focus-visible,a:focus-visible,input:focus-visible { outline:2px solid #8
 [hidden] { display:none !important; }
 footer { text-align:center; padding:24px; color:#90aaa7; border-top:1px solid #2b4249; font-size:13px; }
 @media(max-width:720px) { .cards,.doctrine-grid { grid-template-columns:1fr; } main { padding:20px 16px 40px; } article { padding:20px; } }
+.rules-details { margin-top:20px; }
+.rules-details .cards { margin-top:18px; }
+.section-hint { font-size:13px; color:#9bb6ba; margin-top:22px; }
+.doctrine-grid { grid-template-columns:1fr; }
+.doctrine-card { padding:22px; }
+.doctrine-heading { display:flex; align-items:center; gap:12px; }
+.doctrine-heading h3 { margin:2px 0; }
+.doctrine-brief { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.effect-chips { display:flex; flex-wrap:wrap; gap:7px; list-style:none; padding:0 !important; }
+.effect-chips li { padding:6px 10px; background:#67f0cc0c; border:1px solid #67f0cc33; border-radius:4px; font-size:13px; }
+.doctrine-card h4 { font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:#80e9c6; margin:10px 0; }
+.tree-scroll { overflow:auto; max-height:75vh; border:1px solid #2b4249; border-radius:5px; background:#091316; padding:24px; }
+.guide-tree { position:relative; display:flex; gap:70px; width:max-content; min-width:100%; align-items:flex-start; }
+.tree-column { width:270px; flex:0 0 270px; display:flex; flex-direction:column; gap:30px; }
+.tree-column>small { color:#8ca8a9; font-size:11px; text-transform:uppercase; letter-spacing:1px; }
+.research-entry,.tree-root { position:relative; z-index:1; padding:16px; border:1px solid #456369; border-radius:6px; background:#12262b; scroll-margin:40px; overflow-wrap:anywhere; }
+.tree-root { border-color:#80e9c6; }
+.research-entry p { margin:9px 0; font-size:13px; line-height:1.5; }
+.research-entry small { margin-top:7px; font-size:11px; }
+.tree-edges { position:absolute; inset:0; pointer-events:none; overflow:visible; }
+.tree-hint { font-size:12px; color:#9bb6ba; }
+@media(max-width:720px) { .doctrine-brief { grid-template-columns:1fr; gap:0; } .tree-scroll { padding:14px; } .doctrine-card { padding:16px; } }

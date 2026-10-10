@@ -42,7 +42,9 @@ test('standard map remains the original 3600x2200 battlefield', () => {
 
 test('large-map AI establishes Megacities, production and layered defense instead of idling', () => {
   const { d } = fresh(123456, 'large', 2);
-  simulate(d, 240);
+  // The $200 territory economy reaches production expansion later than the
+  // former $500 economy; allow five minutes while keeping the same targets.
+  simulate(d, 300);
   const ai = d.game.players[1];
   const owned = d.game.buildings.filter(b => b.alive && b.playerId === ai.id);
   const megacities = owned.filter(b => b.type === 'megacity');

@@ -1,0 +1,10 @@
+.field-symbol { display:inline-grid; place-items:center; width:42px; height:42px; flex:0 0 42px; border:1px solid #67f0cc66; background:#67f0cc0d; color:#80e9c6; font-size:25px; border-radius:6px; margin-right:12px; vertical-align:middle; }
+.field-lessons { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.field-lesson { background:#102025; border:1px solid #2b4249; border-radius:8px; padding:18px; }
+.field-lesson h3 { display:flex; align-items:center; font-size:17px; margin:0 0 18px; }
+.field-lesson p { color:#adbfbd; font-size:13px; line-height:1.5; margin:14px 0 0; }
+.field-flow { display:flex; flex-wrap:wrap; gap:7px; align-items:center; font-size:13px; }
+.flow-step { padding:7px 9px; border:1px solid #355052; border-radius:4px; color:#e1ede9; background:#162e32; }
+.flow-arrow { color:#80e9c6; }
+.capture-diagram { width:100%; height:auto; max-height:260px; margin:10px 0; border:1px solid #2b4249; border-radius:8px; background:#091316; }
+@media(max-width:850px) { .field-lessons { grid-template-columns:1fr; } }
