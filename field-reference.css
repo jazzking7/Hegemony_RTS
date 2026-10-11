@@ -7,4 +7,17 @@
 .flow-step { padding:7px 9px; border:1px solid #355052; border-radius:4px; color:#e1ede9; background:#162e32; }
 .flow-arrow { color:#80e9c6; }
 .capture-diagram { width:100%; height:auto; max-height:260px; margin:10px 0; border:1px solid #2b4249; border-radius:8px; background:#091316; }
+.field-objective { padding:20px 24px; margin:18px 0 24px; border-left:3px solid #80e9c6; background:#10252a; border-radius:6px; }
+.field-objective h2,.field-controls h2 { font-size:22px; margin:0 0 12px; }
+.field-objective p { font-size:15px; line-height:1.6; margin:8px 0; color:#bdd0cf; }
+.field-objective strong { color:#f0fff9; }
+.field-controls { margin:26px 0; }
+.field-controls dl { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; margin:0; }
+.field-controls dl>div { display:grid; grid-template-columns:145px 1fr; gap:12px; padding:12px 0; border-bottom:1px solid #2b4249; align-items:start; }
+.field-controls dt { font-size:12px; color:#a9ffe3; line-height:1.7; }
+.field-controls dd { margin:0; font-size:14px; line-height:1.5; color:#bdd0cf; }
+.field-controls kbd { display:inline-block; }
+.quick-tabs { flex-wrap:wrap; }
+@media(max-width:850px) { .field-controls dl { grid-template-columns:1fr; } }
+@media(max-width:450px) { .field-controls dl>div { grid-template-columns:110px 1fr; } }
 @media(max-width:850px) { .field-lessons { grid-template-columns:1fr; } }

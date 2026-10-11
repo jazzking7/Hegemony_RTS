@@ -76,4 +76,6 @@ for (const [id,group] of [['guideBasics','basics'],['guideTerritory','territory'
   document.getElementById(id).innerHTML=FIELD_LESSONS.filter(lesson=>lesson.group===group).map(fieldLessonMarkup).join('');
 }
 document.getElementById('guideCaptureDiagram').innerHTML=captureDiagramMarkup();
+document.getElementById('guideObjective').innerHTML=fieldObjectiveMarkup();
+document.getElementById('guideControls').innerHTML=fieldControlsMarkup();
 renderDoctrineGuide();

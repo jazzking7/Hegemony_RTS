@@ -114,7 +114,7 @@
       ctx.fill();
       for (const edge of zone.territoryEdges) {
         if (!edge.draw) continue;
-        ctx.strokeStyle = detailed ? (edge.regional ? REGION_COLORS[zone.regionId] : 'rgba(177,205,214,.42)') : 'rgba(177,205,214,.09)';
+        ctx.strokeStyle = detailed ? (edge.regional ? `${REGION_COLORS[zone.regionId]}b3` : 'rgba(177,205,214,.32)') : 'rgba(177,205,214,.065)';
         ctx.lineWidth = (detailed && edge.regional ? 2.5 : 1) / zoom;
         ctx.setLineDash(detailed && edge.regional ? [10/zoom,5/zoom] : []);
         ctx.beginPath(); ctx.moveTo(edge.a.x,edge.a.y); ctx.lineTo(edge.b.x,edge.b.y); ctx.stroke();
@@ -132,7 +132,7 @@
       const padding=zone.radius+100/zoom;
       if (zone.x+padding < bounds.left || zone.x-padding > bounds.right || zone.y+padding < bounds.top || zone.y-padding > bounds.bottom) continue;
       const color = zone.contested ? '#ffc879' : zone.ownerId !== null ? game.players[zone.ownerId].color : '#91b0bd';
-      ctx.fillStyle = `${color}18`; ctx.strokeStyle = `${color}${detailed ? 'ff' : '88'}`;
+      ctx.fillStyle = `${color}10`; ctx.strokeStyle = `${color}${detailed ? 'bf' : '66'}`;
       ctx.lineWidth = (game.selected === zone ? 3 : 1.5) / zoom;
       ctx.beginPath(); ctx.arc(zone.x,zone.y,zone.radius,0,Math.PI*2); ctx.fill(); ctx.stroke();
       ctx.textAlign='center'; ctx.fillStyle=`${color}${detailed ? 'ff' : '70'}`;
@@ -140,10 +140,12 @@
       ctx.font=`bold ${Math.min(15/zoom,24)}px sans-serif`;
       ctx.fillText(zone.label,zone.x,zone.y,zone.radius*1.5);
       if (zone.ownerId === null && zone.progress > 0) {
-        const w=zone.radius*1.4, h=Math.min(4/zoom,9), y=zone.y+zone.radius*0.4;
-        ctx.fillStyle='#182d34'; ctx.fillRect(zone.x-w/2,y,w,h);
-        ctx.fillStyle=game.players[zone.claimantId]?.color || color;
-        ctx.fillRect(zone.x-w/2,y,w*zone.progress/CAPTURE_RULES.captureSeconds,h);
+        const progress=Math.min(1,zone.progress/CAPTURE_RULES.captureSeconds);
+        ctx.strokeStyle=game.players[zone.claimantId]?.color || color;
+        ctx.lineWidth=3/zoom;
+        ctx.beginPath();
+        ctx.arc(zone.x,zone.y,zone.radius,-Math.PI/2,-Math.PI/2+Math.PI*2*progress);
+        ctx.stroke();
       }
       if (detailed) {
         const owner = zone.ownerId === null ? 'NEUTRAL' : game.players[zone.ownerId].name;
