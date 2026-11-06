@@ -20,6 +20,12 @@ function inbox(room:typeof host) {
 }
 const h=inbox(host); let g=inbox(guest);
 try {
+  host.send('unsupported_future_command', {});
+  await h.next(S.ERROR, s=>s.message.includes('Unsupported command'));
+  host.send(C.SET_AGENDAS,{enabled:true});
+  await h.next(S.LOBBY_STATE,s=>s.secretAgendas===true);
+  host.send(C.SET_AGENDAS,{enabled:false});
+  await h.next(S.LOBBY_STATE,s=>s.secretAgendas===false);
   host.send(C.SET_AGENDAS,{enabled:true});
   await h.next(S.LOBBY_STATE,s=>s.secretAgendas===true);
   guest.send(C.SET_AGENDAS,{enabled:false});

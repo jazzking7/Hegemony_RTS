@@ -22,6 +22,11 @@ let client = null;
 let room = null;
 let snapshot = null;
 let countdownTimer = null;
+const agendaUnavailableNotice = 'Secret Agendas is unavailable on this server. The server needs to be updated and restarted.';
+// Older servers omit this field and disconnect clients that send set_agendas.
+function supportsAgendas() {
+  return typeof snapshot?.secretAgendas === 'boolean';
+}
 const matchController = createMatchController({
   elements,
   send: payload => room?.send(CLIENT_MESSAGES.MATCH_COMMAND, payload),
@@ -104,9 +109,11 @@ function bindRoom(activeRoom) {
     setConnection('CONNECTED');
     activeRoom.send(CLIENT_MESSAGES.REQUEST_STATE);
   });
-  activeRoom.onLeave(() => {
+  activeRoom.onLeave((code, reason) => {
     if (room !== activeRoom) return;
     setConnection('DISCONNECTED', 'error');
+    elements.lobbyNotice.textContent = `Disconnected (${code})${reason ? `: ${reason}` : '.'}`;
+    elements.lobbyAgendaMode.disabled = true;
   });
 }
 
@@ -131,7 +138,8 @@ function renderLobby() {
     </div>`).join('');
 
   elements.lobbyAgendaMode.value = snapshot.secretAgendas ? 'agendas' : 'classic';
-  elements.lobbyAgendaMode.disabled = !isHost || snapshot.phase !== LOBBY_PHASES.LOBBY;
+  elements.lobbyAgendaMode.disabled = !supportsAgendas() || !isHost || snapshot.phase !== LOBBY_PHASES.LOBBY;
+  elements.lobbyAgendaMode.title = supportsAgendas() ? '' : agendaUnavailableNotice;
   elements.mapSize.value = snapshot.mapSize;
   elements.mapSize.disabled = !isHost || snapshot.phase !== LOBBY_PHASES.LOBBY;
   elements.aiCount.disabled = !isHost || snapshot.phase !== LOBBY_PHASES.LOBBY;
@@ -157,6 +165,9 @@ function renderLobby() {
     elements.lobbyNotice.textContent = 'All commanders ready. Start when prepared.';
   } else {
     elements.lobbyNotice.textContent = 'All commanders ready. Waiting for the host.';
+  }
+  if (!supportsAgendas() && snapshot.phase === LOBBY_PHASES.LOBBY) {
+    elements.lobbyNotice.textContent += ` ${agendaUnavailableNotice}`;
   }
 }
 
@@ -210,7 +221,15 @@ function escapeHtml(value) {
 elements.createLobby.addEventListener('click', () => connect('create'));
 elements.joinLobby.addEventListener('click', () => connect('join'));
 elements.roomCode.addEventListener('keydown', event => { if (event.key === 'Enter') connect('join'); });
-elements.lobbyAgendaMode.addEventListener('change', () => room?.send(CLIENT_MESSAGES.SET_AGENDAS, { enabled: elements.lobbyAgendaMode.value === 'agendas' }));
+elements.lobbyAgendaMode.addEventListener('change', () => {
+  if (!room || !supportsAgendas()) {
+    elements.lobbyAgendaMode.value = 'classic';
+    elements.lobbyNotice.textContent = agendaUnavailableNotice;
+    return;
+  }
+  if (snapshot.hostSessionId !== room.sessionId || snapshot.phase !== LOBBY_PHASES.LOBBY) return;
+  room.send(CLIENT_MESSAGES.SET_AGENDAS, { enabled: elements.lobbyAgendaMode.value === 'agendas' });
+});
 elements.mapSize.addEventListener('change', () => room?.send(CLIENT_MESSAGES.SET_MAP, { mapSize: elements.mapSize.value }));
 elements.aiCount.addEventListener('change', () => room?.send(CLIENT_MESSAGES.SET_AI_COUNT, { count: Number(elements.aiCount.value) }));
 elements.readyButton.addEventListener('click', () => {

@@ -65,3 +65,18 @@ hardening notes.
 ## Optional Secret Agendas
 
 The host can enable Secret Agendas in Victory Mode. These matches run the full game on the server and send private objectives only to their owner. Classic mode keeps its existing command synchronization. See [Secret Agendas](SECRET_AGENDAS.md) for rules, authority, reconnect behavior and testing.
+
+### Updating a live server
+
+Deploy the browser files and server together. `npm start` runs compiled files in
+`dist`; pulling source changes alone does not update that code or the running process.
+For a direct Node deployment, run `npm ci` and `npm run build`, then restart the
+service using your process manager. For Docker Compose, run
+`docker compose up -d --build`; `docker compose restart` alone uses the old image.
+
+After deploying this fix, `/health` should include `"secretAgendas":true`.
+Refresh the lobby page and create a new room. An older server receiving
+`set_agendas` can disconnect the host with the reason
+`room onMessage for "set_agendas" not registered.` The lobby now disables the
+mode selector when the connected room does not advertise agenda support, and
+displays disconnect codes and reasons to help diagnose other failures.

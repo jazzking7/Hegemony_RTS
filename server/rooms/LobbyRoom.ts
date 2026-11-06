@@ -51,6 +51,8 @@ export class LobbyRoom extends Room {
     this.onMessage(CLIENT_MESSAGES.START_MATCH, client => this.startMatch(client));
     this.onMessage(CLIENT_MESSAGES.MATCH_COMMAND, (client, payload) => this.handleMatchCommand(client, payload));
     this.onMessage(CLIENT_MESSAGES.FULL_COMMAND, (client, payload) => this.handleFullCommand(client, payload));
+    // A newer browser may know commands this server does not support yet.
+    this.onMessage('*', client => this.sendError(client, 'Unsupported command. Refresh the page or update the server.'));
     this.setFixedTimestep(context => this.runMatchTick(context.dt), 30);
   }
 
