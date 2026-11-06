@@ -575,7 +575,7 @@
   function damageStrategicMissile(missile, amount, attackerPlayerId) {
     if (!missile || missile.kind !== STRATEGIC_MISSILE_KIND || missile.alive === false || missile.life <= 0 || missile.playerId === attackerPlayerId) return false;
     if (!Number.isFinite(amount) || amount <= 0) return false;
-    missile.hp -= amount;
+    missile.hp -= amount * agendaDamageMultiplier(attackerPlayerId);
     if (missile.hp <= 0) {
       missile.alive = false;
       missile.life = 0;
@@ -682,7 +682,7 @@
     let amount = Math.max(0, Math.min(target.maxHp * rate, Number.isFinite(maxDps) ? maxDps : Infinity) * dt);
     if (typeof getEnergyFieldDamageReduction === 'function') amount *= (1 - getEnergyFieldDamageReduction(target));
     if (amount <= 0) return;
-    target.hp -= amount;
+    target.hp -= amount * agendaDamageMultiplier(attackerPlayerId);
     target.lastHitAt = game.time;
     if (target.hp <= 0) destroyEntity(target, attackerPlayerId);
   }

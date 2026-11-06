@@ -61,3 +61,7 @@ keeps command history so a page that loads later can replay and catch up.
 
 See `docs/FULL_GAME_MULTIPLAYER_MIGRATION.md` for the command coverage and
 hardening notes.
+
+## Optional Secret Agendas
+
+The host can enable Secret Agendas in Victory Mode. These matches run the full game on the server and send private objectives only to their owner. Classic mode keeps its existing command synchronization. See [Secret Agendas](SECRET_AGENDAS.md) for rules, authority, reconnect behavior and testing.

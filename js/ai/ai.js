@@ -1042,7 +1042,7 @@
     const missileSites = game.buildings.filter(b => b.alive && b.playerId === player.id && b.type === 'missileLaunchSite');
     const orbitalSystems = game.buildings.filter(b => b.alive && b.playerId === player.id && b.type === 'orbitalBeamSystem');
     if (!bases.length && !airbases.length && !droneHubs.length && !missileSites.length && !orbitalSystems.length) return 0;
-    const targets = game.players.filter(p => p.alive && p.id !== player.id);
+    const targets = agendaAttackCandidates(player, game.players.filter(p => p.alive && p.id !== player.id));
     if (!targets.length) return 0;
     const targetPlayer = aiChooseAttackTarget(player, targets);
     if (!targetPlayer?.capital?.alive) return 0;

@@ -17,6 +17,7 @@ const FIELD_LESSONS = [
   { group:'advanced', icon:'superiorMobilizationComplex', title:'Customize Exosuit troops', steps:['Unlock and build a Mobilization Complex','Choose equipment and save a name','Train that saved loadout'], note:'A loadout is a saved equipment setup. Clear starts a new setup; Edit changes one you saved. Troops already trained keep their original equipment.' }
 ];
 function fieldObjectiveMarkup() {
+  if(typeof secretAgendasEnabled==='function' && secretAgendasEnabled()) return `<div class="field-objective"><h2>How do I win?</h2><p><strong>Complete your Secret Agenda before another commander wins.</strong> Open MY AGENDA for your targets and progress. Capital destruction still eliminates you. Objectives completed on the same tick share victory; a living Opportunist also wins.</p><p>Pause freezes all agenda timers. Territory objectives require continuous uncontested control.</p></div>`;
   return `<div class="field-objective"><h2>How do I win?</h2><p><strong>Destroy every enemy Capital while keeping yours alive.</strong> The Capital is the building marked with a star.</p><p>You lose if your Capital is destroyed. Build Cities to earn money, train troops, and send them to attack. Capture zones provide extra income; owning territory alone does not win the game.</p></div>`;
 }
 function fieldControlsMarkup() {

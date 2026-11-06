@@ -1192,3 +1192,11 @@ kbd { min-width: 26px; padding: 4px 7px; border: 1px solid rgba(255,255,255,.18)
 @media(max-width:1400px) { .topbar .brand { min-width:42px; } .topbar .brand>div:last-child { display:none; } .topbar .resource strong { font-size:14px; } }
 @media(max-width:1050px) { .topbar .resource-strip { gap:10px; } .topbar .resource { min-width:0; } .topbar .resource span { font-size:8px; letter-spacing:.5px; } .topbar .guide-link { font-size:9px; padding:5px; } .topbar .resource strong { font-size:12px; } }
 @media(max-width:760px) { .topbar { height:auto; min-height:76px; flex-wrap:wrap; padding:7px; } .topbar .resource-strip { order:2; flex-basis:100%; justify-content:space-between; overflow:visible; } .topbar .brand { margin-right:auto; } .topbar .resource strong { font-size:10px; } .territory-resource small { font-size:8px; } }
+
+.agenda-panel { position:fixed; z-index:70; top:86px; right:24px; width:min(420px,calc(100vw - 32px)); padding:22px; background:#10252a; color:#e1ede9; border:1px solid #67f0cc; border-radius:8px; box-shadow:0 16px 50px #0009; }
+.agenda-panel h2 { color:#80e9c6; margin:0 30px 14px 0; }
+.agenda-panel p { line-height:1.6; }
+#closeAgenda { float:right; color:#e1ede9; background:transparent; border:0; font-size:24px; cursor:pointer; }
+#agendaProgress { font-weight:bold; color:#80e9c6; }
+#agendaAnnouncement { color:#ffc879; }
+#agendaMode { background:#10252a; color:#e1ede9; padding:10px; border:1px solid #67f0cc66; }

@@ -13,7 +13,16 @@
     const frameDt = Math.min((now - previous) / 1000, 0.1);
     previous = now;
     let steps = 0;
-    if (NETWORK_MATCH) {
+    if (NETWORK_MATCH && NETWORK_AGENDAS && !AGENDA_SERVER) {
+      networkRenderAlpha=clamp((now-agendaSnapshotAt)/1000/agendaSnapshotInterval,0,1);
+      updateCamera(frameDt);
+      positionAttackMarker();
+      if(game.notificationUntil && game.time>game.notificationUntil) {
+        els.notification.textContent='Complete your Secret Agenda to win. Open MY AGENDA for your objective.';
+        game.notificationUntil=0;
+      }
+      hudAccumulator+=frameDt;
+    } else if (NETWORK_MATCH) {
       const bridge = window.__FULL_NETWORK_BRIDGE__;
       const targetTick = bridge?.getTargetTick?.() || 0;
       // Tick messages cover three simulation steps. Consume that buffer over

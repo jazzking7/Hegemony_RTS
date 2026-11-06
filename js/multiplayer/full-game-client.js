@@ -18,6 +18,23 @@ async function connect() {
   const room = await client.reconnect(token);
   sessionStorage.setItem('commandRadius.reconnectionToken', room.reconnectionToken);
   bridge.setTransport(command => room.send(CLIENT_MESSAGES.FULL_COMMAND, command));
+  room.onMessage(SERVER_MESSAGES.AGENDA_WORLD, packet => receiveAgendaWorld(packet));
+  room.onMessage(SERVER_MESSAGES.PRIVATE_AGENDA, view => receivePrivateAgenda(view));
+  room.onMessage(SERVER_MESSAGES.ORDER_RESULT, payload => {
+    if(!bridge.confirmResult(payload.requestId,payload.result)) return;
+    if(payload.result?.ok===false) notify(payload.result.reason || 'Order rejected.','warning',3);
+    else {
+      if(payload.name==='placeBuilding') {
+        const building=game.entityById.get(payload.result?.entityId);
+        if(building && game.buildMode===building.type && !game.continuousBuild) { setSelection(building); setBuildMode(null); }
+      }
+      if(payload.name==='deployAttack') closeAttackModal();
+      if(['confirmOrbitalEnergyAim','fireOrbitalEnergyAt'].includes(payload.name)) cancelOrbitalEnergyAiming();
+      if(payload.name==='confirmMissileAimTarget') game.missileAimTarget=null;
+      if(payload.result?.message) notify(payload.result.message,'good',2);
+      renderSelectionPanel(); renderResearchModal(); refreshBuildButtons();
+    }
+  });
   room.onMessage(SERVER_MESSAGES.LOBBY_STATE, () => {});
   room.onMessage(SERVER_MESSAGES.MATCH_TICK, () => {});
   room.onMessage(SERVER_MESSAGES.FULL_COMMAND, envelope => bridge.queueCommand(envelope));

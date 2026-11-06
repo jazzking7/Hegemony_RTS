@@ -17,6 +17,8 @@
     return '';
   }
 
+  const AGENDA_SERVER = globalThis.__AGENDA_AUTHORITY__ === true;
+  const NETWORK_AGENDAS = getRuntimeParameter('agendas') === '1';
   const NETWORK_MATCH = getRuntimeParameter('network') === '1';
   const configuredPlayerId = Math.floor(Number(getRuntimeParameter('player')));
   const LOCAL_PLAYER_ID = NETWORK_MATCH && Number.isInteger(configuredPlayerId)

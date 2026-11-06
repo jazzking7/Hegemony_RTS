@@ -108,7 +108,10 @@
     els.startOverlay.classList.add('hidden');
     resetGame();
   });
-  els.restartButton.addEventListener('click', resetGame);
+  els.restartButton.addEventListener('click', () => {
+    if (NETWORK_MATCH) location.assign('online.html');
+    else resetGame();
+  });
 
   if (NETWORK_MATCH) {
     game.enemyCount = NETWORK_COMMANDER_COUNT - 1;

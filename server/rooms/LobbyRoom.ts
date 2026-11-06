@@ -1,3 +1,4 @@
+import { AgendaMatch } from '../game/AgendaMatch.js';
 import type { Client } from 'colyseus';
 import { Room } from 'colyseus';
 import {
@@ -20,6 +21,8 @@ export class LobbyRoom extends Room {
   maxClients = MAX_COMMANDERS;
   patchRate = 100;
   maxMessagesPerSecond = 30;
+  private agendaMatch: AgendaMatch | null = null;
+  private lockedMatch: ReturnType<LobbyRoom['matchDescriptor']> | null = null;
   private hostSessionId = '';
   private matchSeed = 1;
   private commandSequence = 0;
@@ -37,6 +40,11 @@ export class LobbyRoom extends Room {
     this.setMetadata({ phase: LOBBY_PHASES.LOBBY, mapSize: 'standard' });
 
     this.onMessage(CLIENT_MESSAGES.REQUEST_STATE, client => this.sendCurrentState(client));
+    this.onMessage(CLIENT_MESSAGES.SET_AGENDAS, (client, payload) => {
+      if (!this.requireHostInLobby(client)) return;
+      this.state.secretAgendas = payload?.enabled === true;
+      this.resetReadiness(); this.broadcastSnapshot();
+    });
     this.onMessage(CLIENT_MESSAGES.SET_READY, (client, payload) => this.setReady(client, payload));
     this.onMessage(CLIENT_MESSAGES.SET_MAP, (client, payload) => this.setMap(client, payload));
     this.onMessage(CLIENT_MESSAGES.SET_AI_COUNT, (client, payload) => this.setAiCount(client, payload));
@@ -80,6 +88,11 @@ export class LobbyRoom extends Room {
   }
 
   onLeave(client: Client): void {
+    if(this.state.phase !== LOBBY_PHASES.LOBBY) {
+      const player=this.state.players.get(client.sessionId);
+      if(player) player.connected=false;
+      this.broadcastSnapshot(); return;
+    }
     this.state.players.delete(client.sessionId);
     if (client.sessionId === this.hostSessionId) this.transferHost();
     this.fitAiCount();
@@ -121,6 +134,9 @@ export class LobbyRoom extends Room {
     const check = canStartLobby(client.sessionId, this.hostSessionId, members, this.state.aiCount);
     if (!check.ok) return this.sendError(client, check.reason ?? 'The lobby cannot start yet.');
 
+    // Vacated lobby seats must not leave gaps in the runtime player array.
+    [...this.state.players.values()].sort((a,b)=>a.seat-b.seat).forEach((player,index)=>{player.seat=index;});
+    this.lockedMatch=this.matchDescriptor();
     this.state.phase = LOBBY_PHASES.COUNTDOWN;
     this.state.countdownEndsAt = Date.now() + 3000;
     this.lock();
@@ -133,7 +149,8 @@ export class LobbyRoom extends Room {
       this.commandSequence = 0;
       this.commandHistory = [];
       this.setMetadata({ phase: this.state.phase, mapSize: this.state.mapSize });
-      const match = this.matchDescriptor();
+      const match = this.lockedMatch!;
+      if(this.state.secretAgendas) this.agendaMatch=new AgendaMatch(match);
       this.broadcast(SERVER_MESSAGES.MATCH_STARTED, match);
       this.broadcast(SERVER_MESSAGES.FULL_TICK, { tick: 0, sequence: 0 });
       this.broadcastSnapshot();
@@ -143,6 +160,19 @@ export class LobbyRoom extends Room {
   private runMatchTick(_dt: number): void {
     if (this.state.phase !== LOBBY_PHASES.PLAYING) return;
     this.state.serverTick++;
+    if(this.agendaMatch) {
+      const acknowledgements=this.agendaMatch.step(this.state.serverTick);
+      if(this.state.serverTick % 3===0 || this.agendaMatch.ended || acknowledgements.length) {
+        this.broadcast(SERVER_MESSAGES.AGENDA_WORLD,this.agendaMatch.publicState());
+        for(const client of this.clients) this.sendPrivateAgenda(client);
+      }
+      for(const acknowledgement of acknowledgements) {
+        const client=this.clients.find(c=>this.state.players.get(c.sessionId)?.seat===acknowledgement.playerId);
+        client?.send(SERVER_MESSAGES.ORDER_RESULT,acknowledgement);
+      }
+      if(this.agendaMatch.ended) { this.state.phase=LOBBY_PHASES.ENDED; this.broadcastSnapshot(); }
+      return;
+    }
     if (this.state.serverTick % 3 === 0) {
       this.broadcast(SERVER_MESSAGES.FULL_TICK, {
         tick: this.state.serverTick,
@@ -178,6 +208,7 @@ export class LobbyRoom extends Room {
       playerId: player.seat,
       command: { name, args: command.args, ...(typeof command.requestId === 'string' && command.requestId.length <= 64 ? { requestId:command.requestId } : {}) }
     };
+    if(this.agendaMatch) { this.agendaMatch.enqueue(envelope); return; }
     this.commandHistory.push(envelope);
     this.broadcast(SERVER_MESSAGES.FULL_COMMAND, envelope);
   }
@@ -215,11 +246,13 @@ export class LobbyRoom extends Room {
     this.state.players.forEach(player => { player.host = player.sessionId === this.hostSessionId; });
   }
 
-  private matchDescriptor() {
+  private matchDescriptor(): {roomCode:string;mapSize:string;aiCount:number;secretAgendas:boolean;tickRate:number;seed:number;commanderCount:number;humanSeats:number[];players:Array<{sessionId:string;name:string;seat:number}>} {
+    if(this.lockedMatch) return this.lockedMatch;
     return {
       roomCode: this.roomId,
       mapSize: this.state.mapSize,
       aiCount: this.state.aiCount,
+      secretAgendas: this.state.secretAgendas,
       tickRate: 30,
       seed: this.matchSeed,
       commanderCount: this.state.players.size + this.state.aiCount,
@@ -252,6 +285,13 @@ export class LobbyRoom extends Room {
 
   private sendCurrentState(client: Client): void {
     client.send(SERVER_MESSAGES.LOBBY_STATE, this.snapshot());
+    if(this.agendaMatch) {
+      client.send(SERVER_MESSAGES.AGENDA_WORLD,this.agendaMatch.publicState());
+      this.sendPrivateAgenda(client);
+      const player=this.state.players.get(client.sessionId);
+      if(player) for(const result of this.agendaMatch.resultsFor(player.seat)) client.send(SERVER_MESSAGES.ORDER_RESULT,result);
+      return;
+    }
     if (this.state.phase === LOBBY_PHASES.PLAYING) {
       for (const envelope of this.commandHistory) client.send(SERVER_MESSAGES.FULL_COMMAND, envelope);
       client.send(SERVER_MESSAGES.FULL_TICK, {
@@ -259,6 +299,11 @@ export class LobbyRoom extends Room {
         sequence: this.commandSequence
       });
     }
+  }
+
+  private sendPrivateAgenda(client:Client):void {
+    const player=this.state.players.get(client.sessionId);
+    if(player && this.agendaMatch) client.send(SERVER_MESSAGES.PRIVATE_AGENDA,this.agendaMatch.privateState(player.seat));
   }
 
   private broadcastSnapshot(): void {

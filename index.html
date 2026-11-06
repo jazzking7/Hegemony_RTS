@@ -29,6 +29,7 @@
       </div>
       <button id="captureDetailsButton" class="guide-link" type="button" aria-pressed="false" title="Show zone status and region boundaries">TERRITORY DETAILS</button>
       <button id="quickReadButton" class="guide-link" type="button" aria-controls="quickReadModal" aria-expanded="false">QUICK READ <kbd>H</kbd></button>
+      <button id="agendaButton" class="guide-link hidden" type="button">MY AGENDA</button>
       <button id="pauseButton" class="icon-button" type="button" title="Pause / Resume">Ⅱ</button>
     </header>
 
@@ -243,6 +244,7 @@
       </div>
     </div>
 
+    <section id="agendaPanel" class="panel agenda-panel hidden" aria-label="Your secret agenda"><button id="closeAgenda" type="button" aria-label="Close agenda">×</button><h2 id="agendaTitle">Secret Agenda</h2><p id="agendaDescription"></p><p id="agendaProgress" aria-live="polite"></p><p id="agendaAnnouncement"></p></section>
     <div id="startOverlay" class="start-overlay">
       <div class="start-card panel">
         <div class="eyebrow">LOCAL SKIRMISH / BATTLE SETUP</div>
@@ -273,6 +275,7 @@
           </div>
         </div>
 
+        <label class="start-option"><span>VICTORY MODE</span><select id="agendaMode"><option value="classic">Destroy Capitals</option><option value="agendas">Secret Agendas</option></select></label>
         <div class="start-features">
           <span>1–4 enemies</span>
           <span>1000-entity target</span>
@@ -298,12 +301,15 @@
   <!-- Classic scripts intentionally preserve plain file:// launching. Load order is dependency order. -->
   <script src="js/config/definitions.js"></script>
   <script src="js/core/metadata.js"></script>
+  <script src="shared/secret-agendas.js"></script>
+  <script src="shared/world-state.js"></script>
   <script src="js/config/research.js"></script>
   <script src="js/core/core-systems.js"></script>
   <script src="js/systems/navigation.js"></script>
   <script src="js/core/state-lifecycle.js"></script>
   <script src="js/core/setup.js"></script>
   <script src="js/systems/capture-zones.js"></script>
+  <script src="js/systems/secret-agendas.js"></script>
   <script src="js/ui/editor-state.js"></script>
   <script src="js/ui/ui-construction.js"></script>
   <script src="js/systems/camera.js"></script>

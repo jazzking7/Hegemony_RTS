@@ -15,6 +15,7 @@ export const LobbyState = schema({
   phase: t.string().default('lobby'),
   mapSize: t.string().default('standard'),
   aiCount: t.uint8().default(0),
+  secretAgendas: t.boolean().default(false),
   countdownEndsAt: t.float64().default(0),
   serverTick: t.uint32().default(0),
   players: t.map(LobbyPlayer)

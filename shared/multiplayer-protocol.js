@@ -4,6 +4,7 @@ export const CLIENT_MESSAGES = Object.freeze({
   REQUEST_STATE: 'request_state',
   SET_READY: 'set_ready',
   SET_MAP: 'set_map',
+  SET_AGENDAS: 'set_agendas',
   SET_AI_COUNT: 'set_ai_count',
   START_MATCH: 'start_match',
   MATCH_COMMAND: 'match_command',
@@ -18,6 +19,9 @@ export const SERVER_MESSAGES = Object.freeze({
   MATCH_ENDED: 'match_ended',
   FULL_COMMAND: 'full_command',
   FULL_TICK: 'full_tick',
+  AGENDA_WORLD: 'agenda_world',
+  PRIVATE_AGENDA: 'private_agenda',
+  ORDER_RESULT: 'order_result',
   ERROR: 'command_error'
 });
 

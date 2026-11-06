@@ -11,7 +11,8 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/index.html /app/online.html /app/styles.css /app/online.css ./
+COPY --from=build /app/server/runtime ./dist/server/runtime
+COPY --from=build /app/index.html /app/online.html /app/guide.html /app/styles.css /app/online.css /app/guide.css /app/field-reference.css ./
 COPY --from=build /app/js ./js
 COPY --from=build /app/shared ./shared
 EXPOSE 2567

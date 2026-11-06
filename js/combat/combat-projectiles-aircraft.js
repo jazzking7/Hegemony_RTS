@@ -229,7 +229,7 @@
       return false;
     }
 
-    let finalAmount = amount;
+    let finalAmount = amount * agendaDamageMultiplier(attackerPlayerId);
     if (target.kind === 'unit' && typeof advancedInfantryNullifiesHit === 'function' && isAdvancedInfantryUnit(target) && !options.environmentalDOT && advancedInfantryNullifiesHit(target)) {
       pushEffect({ type:'shield', x:target.x, y:target.y, radius:target.radius + 8, life:0.18, maxLife:0.18 });
       return true;
@@ -495,6 +495,7 @@
     const player = game.players[playerId];
     if (!player || !player.alive) return;
     player.alive = false;
+    recordAgendaElimination(playerId, attackerPlayerId);
     for (const b of game.buildings) {
       if (b.playerId === playerId && b.alive) markEntityDead(b, false);
     }
@@ -503,6 +504,7 @@
     }
     pushEffect({ type: 'shockwave', x: player.capital.x, y: player.capital.y, radius: 360, life: 1.5, maxLife: 1.5 });
 
+    if (secretAgendasEnabled()) return;
     if (playerId === PLAYER_ID) {
       finishGame(false, `${game.players[attackerPlayerId]?.name || 'Enemy forces'} destroyed your capital.`);
     } else {

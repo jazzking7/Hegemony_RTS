@@ -10,7 +10,7 @@ import { createMatchController } from './match-client.js';
 const elements = Object.fromEntries([
   'connectionStatus', 'entryView', 'playerName', 'roomCode', 'createLobby', 'joinLobby', 'entryError',
   'lobbyView', 'lobbyCode', 'leaveLobby', 'inviteLink', 'copyInvite', 'rosterCount', 'playerRoster',
-  'mapSize', 'aiCount', 'lobbyNotice', 'readyButton', 'startMatch', 'matchView', 'matchHeading',
+  'mapSize', 'aiCount', 'lobbyAgendaMode', 'lobbyNotice', 'readyButton', 'startMatch', 'matchView', 'matchHeading',
   'matchSummary', 'serverTick', 'matchConnection', 'matchMoney', 'selectedCount', 'trainInfantry',
   'trainTank', 'battlefieldCanvas', 'matchBanner', 'matchRoster'
 ].map(id => [id, document.getElementById(id)]));
@@ -130,6 +130,8 @@ function renderLobby() {
       <span class="player-state ready">READY</span>
     </div>`).join('');
 
+  elements.lobbyAgendaMode.value = snapshot.secretAgendas ? 'agendas' : 'classic';
+  elements.lobbyAgendaMode.disabled = !isHost || snapshot.phase !== LOBBY_PHASES.LOBBY;
   elements.mapSize.value = snapshot.mapSize;
   elements.mapSize.disabled = !isHost || snapshot.phase !== LOBBY_PHASES.LOBBY;
   elements.aiCount.disabled = !isHost || snapshot.phase !== LOBBY_PHASES.LOBBY;
@@ -189,6 +191,7 @@ function launchFullGame(activeRoom, match) {
   sessionStorage.setItem('commandRadius.reconnectionToken', activeRoom.reconnectionToken);
   const params = new URLSearchParams({
     network: '1',
+    agendas: match.secretAgendas ? '1' : '0',
     room: activeRoom.roomId,
     player: String(me.seat),
     humans: match.humanSeats.join(','),
@@ -207,6 +210,7 @@ function escapeHtml(value) {
 elements.createLobby.addEventListener('click', () => connect('create'));
 elements.joinLobby.addEventListener('click', () => connect('join'));
 elements.roomCode.addEventListener('keydown', event => { if (event.key === 'Enter') connect('join'); });
+elements.lobbyAgendaMode.addEventListener('change', () => room?.send(CLIENT_MESSAGES.SET_AGENDAS, { enabled: elements.lobbyAgendaMode.value === 'agendas' }));
 elements.mapSize.addEventListener('change', () => room?.send(CLIENT_MESSAGES.SET_MAP, { mapSize: elements.mapSize.value }));
 elements.aiCount.addEventListener('change', () => room?.send(CLIENT_MESSAGES.SET_AI_COUNT, { count: Number(elements.aiCount.value) }));
 elements.readyButton.addEventListener('click', () => {

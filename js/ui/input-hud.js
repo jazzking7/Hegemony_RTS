@@ -4,6 +4,7 @@
   // HUD and input
   // ---------------------------------------------------------------------------
   function updateHUD() {
+    refreshAgendaUI();
     if (!game.players.length) return;
     const player = game.players[PLAYER_ID];
     els.money.textContent = moneyText(player.money);

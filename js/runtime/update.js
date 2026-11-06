@@ -37,9 +37,10 @@
     updateProjectiles(dt);
     updateEffects(dt);
     compactDeadEntities();
+    updateSecretAgendas(dt);
 
     if (game.notificationUntil && game.time > game.notificationUntil) {
-      els.notification.textContent = 'Destroy enemy capitals to win.';
+      els.notification.textContent = secretAgendasEnabled() ? 'Complete your Secret Agenda to win. Open MY AGENDA for your objective.' : 'Destroy enemy capitals to win.';
       els.notification.className = 'notification';
       game.notificationUntil = 0;
     }

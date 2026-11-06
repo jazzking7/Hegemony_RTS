@@ -4,6 +4,7 @@
   if (!NETWORK_MATCH) return;
 
   const handlers = new Map();
+  const actors = new Map();
   const queuedByTick = new Map();
   const seenSequences = new Set();
   const pendingOutbound = [];
@@ -14,6 +15,7 @@
   let requestSequence = 0;
   const requestPrefix = window.crypto?.randomUUID?.() || `${LOCAL_PLAYER_ID}:${Date.now()}`;
   const commandCallbacks = new Map();
+  const confirmedResults = new Set();
 
   function encode(value, seen = new WeakSet()) {
     if (value == null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value;
@@ -46,8 +48,9 @@
 
   function wrap(name, original, actorFromArgs, queuedResult = true) {
     handlers.set(name, args => original(...args.map(decode)));
+    actors.set(name, actorFromArgs);
     return function networkCommandWrapper(...args) {
-      if (applying) return original(...args);
+      if (applying || AGENDA_SERVER) return original(...args);
       const actor = Number(actorFromArgs(args));
       if (actor !== LOCAL_PLAYER_ID) return original(...args);
       const requestId = send(name, args);
@@ -69,7 +72,7 @@
     try {
       PLAYER_ID = actor;
       applying = true;
-      if (remote && savedNotify) notify = () => {};
+      if (remote && savedNotify && !AGENDA_SERVER) notify = () => {};
       result = handler(Array.isArray(envelope.command.args) ? envelope.command.args : []);
     } finally {
       if (remote && savedNotify) notify = savedNotify;
@@ -87,6 +90,7 @@
       commandCallbacks.delete(requestId);
       callback?.(result);
     }
+    return result;
   }
 
   placeBuilding = wrap('placeBuilding', placeBuilding, args => args[3] ?? LOCAL_PLAYER_ID, () => null);
@@ -133,10 +137,11 @@
       attackAmounts: game.attackAmounts,
       chosenBaseId: game.chosenBaseId,
       deploymentPrefs: game.deploymentPrefs,
+      focusedDeployment: game.focusedDeployment,
       bringUnmannedEscorts: game.bringUnmannedEscorts,
       escortsPerAircraft: game.escortsPerAircraft
     };
-    Object.assign(game, payload);
+    for (const key of Object.keys(saved)) if (Object.hasOwn(payload,key)) game[key]=payload[key];
     deployAttackLocal();
     if (PLAYER_ID !== LOCAL_PLAYER_ID) Object.assign(game, saved);
   });
@@ -147,6 +152,7 @@
       attackAmounts: { ...game.attackAmounts },
       chosenBaseId: game.chosenBaseId,
       deploymentPrefs: { ...game.deploymentPrefs },
+      focusedDeployment: !!game.focusedDeployment,
       bringUnmannedEscorts: !!game.bringUnmannedEscorts,
       escortsPerAircraft: game.escortsPerAircraft
     }]);
@@ -205,6 +211,46 @@
   };
 
   window.__FULL_NETWORK_BRIDGE__ = {
+    executeAuthoritative(envelope) {
+      const actor=envelope.playerId, command=envelope.command;
+      if(!game.players[actor]?.alive || game.over) return {ok:false,reason:'Your commander cannot issue orders.'};
+      if(!handlers.has(command.name)) return {ok:false,reason:'Unknown order.'};
+      const valid=value=> {
+        if(typeof value==='number') return Number.isFinite(value);
+        if(!value || typeof value!=='object') return true;
+        if(Object.keys(value).some(k=>['__proto__','constructor','prototype'].includes(k))) return false;
+        if(Object.hasOwn(value,'$entity')) return game.entityById.get(value.$entity)?.playerId===actor;
+        return Object.values(value).every(valid);
+      };
+      if(!valid(command.args)) return {ok:false,reason:'Invalid order or foreign entity.'};
+      if(command.name==='placeBuilding' && command.args.length<4) command.args[3]=actor;
+      const playerCommands=new Set(['startResearch','setFighterMissileConfiguration','setParatrooperComposition','setVehiclePassengerComposition','setIFVTurretConfiguration','setConvoyDefinition','saveInfantryLoadout','deleteInfantryLoadout','setScheduledDeployment','trainScheduledDeployment']);
+      const getActor=actors.get(command.name);
+      if(getActor && !playerCommands.has(command.name) && !['placeBuilding','togglePause'].includes(command.name)) {
+        if(!Number.isInteger(command.args[0]?.$entity)) return {ok:false,reason:'Orders require a real owned facility.'};
+      }
+      if(playerCommands.has(command.name) && command.args[0]!==actor) return {ok:false,reason:'Invalid commander.'};
+      if(getActor && command.name!=='togglePause' && Number(getActor(command.args.map(decode)))!==actor) return {ok:false,reason:'You can only command your own forces.'};
+      const payload=command.args[0];
+      const facilityId=payload?.siteId ?? payload?.systemId ?? (payload?.chosenBaseId || null);
+      if(facilityId!=null && game.entityById.get(facilityId)?.playerId!==actor) return {ok:false,reason:'That facility is not yours.'};
+      const originalNotify=notify;
+      let warning=null, message=null;
+      notify=(text,tone)=>{ if(tone==='warning') warning=text; else message=text; };
+      try {
+        const result=execute(envelope);
+        if(result===false || result===null || (result===undefined && warning)) return {ok:false,reason:warning || 'Order could not be completed.'};
+        if(result?.kind==='building') return {ok:true,entityId:result.id,message};
+        return result===undefined ? {ok:true,message} : result;
+      } catch (_) { return {ok:false,reason:'Invalid battlefield order.'}; }
+      finally { notify=originalNotify; }
+    },
+    confirmResult(requestId,result) {
+      if(typeof requestId!=='string' || !requestId.startsWith(`${requestPrefix}:`) || confirmedResults.has(requestId)) return false;
+      confirmedResults.add(requestId);
+      const callback=commandCallbacks.get(requestId); commandCallbacks.delete(requestId); callback?.(result);
+      return true;
+    },
     onCommandResult(requestId, callback) { commandCallbacks.set(requestId, callback); },
     rejectPending(reason) {
       const callbacks = [...commandCallbacks.values()];

@@ -197,7 +197,7 @@ function updateCaptureZoneAI(dt) {
     const assigned = new Set(game.units.filter(u => u.alive && u.playerId === player.id && u.captureZoneId).map(u => u.captureZoneId));
     const bases = game.buildings.filter(b => b.alive && b.playerId === player.id && isGroundMilitaryFacility(b) && getGroundDefinitionAvailable(b, 'basic') >= 6);
     let best = null;
-    for (const base of bases) for (const zone of game.captureZones || []) {
+    for (const base of bases) for (const zone of agendaCaptureCandidates(player, game.captureZones || [])) {
       if (zone.ownerId === player.id || assigned.has(zone.id)) continue;
       const score = distance(base, zone) + (zone.ownerId !== null ? 800 : 0);
       if (!best || score < best.score) best = { base, zone, score };

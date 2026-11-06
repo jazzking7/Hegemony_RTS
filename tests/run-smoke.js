@@ -7,6 +7,7 @@ const smokeTests = [
   'capital-aa-infantry-balance-smoke.js',
   'command-smoke.js',
   'capture-zones.js',
+  'secret-agendas.js',
   'editor-saves.js',
   'guide-smoke.js',
   'directed-energy-smoke.js',

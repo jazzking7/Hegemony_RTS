@@ -111,6 +111,7 @@
     }
 
     initializeCaptureZones();
+    initializeSecretAgendas();
     selectionEditorDrafts.clear();
     renderedEditorEntityId = null;
     game.advancedInfantryEditingLoadoutId = null;
@@ -123,7 +124,8 @@
     refreshBuildButtons();
     updateHUD();
     const mapPreset = MAP_SIZE_PRESETS[game.mapSize] || MAP_SIZE_PRESETS.standard;
-    notify(`Skirmish online against ${game.enemyCount} enemy commander${game.enemyCount === 1 ? '' : 's'} on the ${mapPreset.name.toLowerCase()} map. Expand inside the capital command radius.`, 'good', 5);
+    if(secretAgendasEnabled()) notify('Secret Agendas active. Open MY AGENDA for your private objective.', 'good', 8);
+    else notify(`Skirmish online against ${game.enemyCount} enemy commander${game.enemyCount === 1 ? '' : 's'} on the ${mapPreset.name.toLowerCase()} map. Expand inside the capital command radius.`, 'good', 5);
   }
 
   function setupPlayerBase(playerId, x, y, facing) {
